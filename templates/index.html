@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeneWeaver | DNA Sequence Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/">🧬 GeneWeaver</a>
+        <span class="tagline">DNA Sequence Analysis System</span>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <p class="eyebrow">PYTHON DEVELOPMENT PROJECT</p>
+            <h1>Understand your DNA sequence.</h1>
+            <p class="intro">Enter a DNA sequence or upload a FASTA file to calculate nucleotide statistics,
+                generate its reverse complement, transcribe RNA and translate protein codons.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Analyze a sequence</h2>
+            <form method="POST" enctype="multipart/form-data">
+                <label for="sequence">DNA sequence</label>
+                <textarea id="sequence" name="sequence" rows="5"
+                    placeholder="Example: ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG">{{ sequence }}</textarea>
+                <div class="or-divider"><span>OR UPLOAD A FILE</span></div>
+                <label for="fasta_file">FASTA / text file</label>
+                <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa,.txt">
+                <div class="actions">
+                    <button type="submit">Analyze DNA</button>
+                    <button class="secondary" type="button" onclick="loadExample()">Load example</button>
+                    <button class="secondary" type="reset">Clear</button>
+                </div>
+            </form>
+            {% if error %}
+                <div class="alert" role="alert">{{ error }}</div>
+            {% endif %}
+            {% if source_name %}
+                <p class="file-note">Uploaded file: {{ source_name }}</p>
+            {% endif %}
+        </section>
+
+        {% if result %}
+        <section class="results">
+            <div class="results-heading">
+                <div>
+                    <p class="eyebrow">ANALYSIS COMPLETE</p>
+                    <h2>Sequence report</h2>
+                </div>
+                <span class="success">✓ Valid DNA</span>
+            </div>
+
+            <div class="stats">
+                <article class="stat"><span>Sequence length</span><strong>{{ result.length }}</strong><small>bases</small></article>
+                <article class="stat"><span>GC content</span><strong>{{ result.gc_content }}%</strong><small>G + C</small></article>
+                <article class="stat"><span>AT content</span><strong>{{ result.at_content }}%</strong><small>A + T</small></article>
+                <article class="stat"><span>Complete codons</span><strong>{{ result.codons }}</strong><small>groups of 3</small></article>
+            </div>
+
+            <div class="panel">
+                <h3>Nucleotide counts</h3>
+                <div class="base-grid">
+                    {% for base in ["A", "T", "G", "C"] %}
+                    <div class="base-card base-{{ base|lower }}">
+                        <strong>{{ base }}</strong><span>{{ result.counts[base] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="panel sequence-panel">
+                <h3>Sequence transformations</h3>
+                <div class="output-block"><label>Original DNA</label><code>{{ result.sequence }}</code></div>
+                <div class="output-block"><label>Reverse complement</label><code>{{ result.reverse_complement }}</code></div>
+                <div class="output-block"><label>RNA transcript (T → U)</label><code>{{ result.rna }}</code></div>
+                <div class="output-block"><label>Protein translation (one-letter amino-acid codes)</label><code>{{ result.protein }}</code></div>
+            </div>
+            <p class="disclaimer">Educational tool: results are computational sequence summaries, not medical advice or clinical interpretation.</p>
+        </section>
+        {% endif %}
+    </main>
+
+    <footer>GeneWeaver · Built with Python and Flask</footer>
+    <script>
+        function loadExample() {
+            document.getElementById("sequence").value =
+                "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG";
+        }
+    </script>
+</body>
+</html>
