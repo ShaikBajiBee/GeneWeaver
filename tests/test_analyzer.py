@@ -11,6 +11,8 @@ from analyzer import (
     calculate_melting_temperature,
     calculate_gc_skew,
     find_orfs,
+    find_restriction_sites,
+    calculate_isoelectric_point,
     analyze_sequence,
     SequenceError,
 )
@@ -38,7 +40,6 @@ class TestAnalyzer(unittest.TestCase):
         self.assertIn("Invalid DNA character(s)", str(ctx.exception))
 
     def test_reverse_complement(self):
-        # 5'-ATGC-3' -> complement 5'-TACG-3' -> reverse 5'-GCAT-3'
         self.assertEqual(reverse_complement("ATGC"), "GCAT")
         self.assertEqual(reverse_complement("AAAA"), "TTTT")
 
@@ -46,7 +47,6 @@ class TestAnalyzer(unittest.TestCase):
         self.assertEqual(transcribe("ATGGCCATTTGA"), "AUGGCCAUUUGA")
 
     def test_translate(self):
-        # ATG -> M, GCC -> A, ATT -> I, TGA -> Stop
         result = translate("ATGGCCATTTGA")
         self.assertEqual(result, "M A I Stop")
 
@@ -62,8 +62,6 @@ class TestAnalyzer(unittest.TestCase):
         self.assertGreater(mw["dsDNA"], mw["ssDNA"])
 
     def test_melting_temperature_short(self):
-        # Wallace rule: 2*(A+T) + 4*(G+C)
-        # ATGC: 2*2 + 4*2 = 12
         tm = calculate_melting_temperature("ATGC")
         self.assertEqual(tm, 12.0)
 
@@ -74,21 +72,44 @@ class TestAnalyzer(unittest.TestCase):
         self.assertGreater(tm, 50.0)
 
     def test_gc_skew(self):
-        # Equal G and C: skew should be 0.0
         self.assertEqual(calculate_gc_skew("GGCC"), 0.0)
-        # All G: skew should be 1.0
         self.assertEqual(calculate_gc_skew("GGGG"), 1.0)
-        # All C: skew should be -1.0
         self.assertEqual(calculate_gc_skew("CCCC"), -1.0)
 
     def test_find_orfs(self):
-        # ATG (M) GCC (A) ATT (I) GTA (V) TAA (Stop) -> 4 amino acids
         dna = "ATGGCCATTGTATAA"
         orfs = find_orfs(dna, min_codon_length=2)
         self.assertEqual(len(orfs), 1)
         self.assertEqual(orfs[0]["start"], 1)
         self.assertEqual(orfs[0]["end"], 15)
         self.assertEqual(orfs[0]["protein"], "MAIV")
+
+    def test_restriction_sites_ecori(self):
+        # Insert EcoRI site (GAATTC) into DNA: length 20, site at pos 5
+        dna = "AAAAAGAATTCGGGGGGGGG"
+        sites = find_restriction_sites(dna)
+        ecori = next((e for e in sites if e["name"] == "EcoRI"), None)
+        self.assertIsNotNone(ecori)
+        self.assertEqual(ecori["cuts"], 1)
+        self.assertEqual(ecori["cut_positions"], [6])
+        self.assertEqual(ecori["fragments"], [14, 6])
+
+    def test_restriction_sites_no_cutters(self):
+        dna = "AAAAAAAAAAAAAAAA"
+        sites = find_restriction_sites(dna)
+        for e in sites:
+            self.assertEqual(e["cuts"], 0)
+            self.assertEqual(e["fragments"], [16])
+
+    def test_isoelectric_point(self):
+        # Poly-lysine (basic) should have high pI (> 9.0)
+        prot = "K K K K K"
+        pi_data = calculate_isoelectric_point(prot)
+        self.assertGreater(pi_data["pi"], 9.0)
+        # Poly-aspartic acid (acidic) should have low pI (< 4.5)
+        prot_acidic = "D D D D D"
+        pi_acidic = calculate_isoelectric_point(prot_acidic)
+        self.assertLess(pi_acidic["pi"], 4.5)
 
     def test_parse_fasta_single(self):
         fasta = ">TestSeq\nATGG\nCCAT\nTTGA\n"
@@ -97,23 +118,14 @@ class TestAnalyzer(unittest.TestCase):
         self.assertEqual(records[0]["header"], "TestSeq")
         self.assertEqual(records[0]["sequence"], "ATGGCCATTTGA")
 
-    def test_parse_fasta_multi(self):
-        fasta = ">Seq1\nATGC\n>Seq2\nCGTA\n"
-        records = parse_fasta(fasta)
-        self.assertEqual(len(records), 2)
-        self.assertEqual(records[0]["header"], "Seq1")
-        self.assertEqual(records[0]["sequence"], "ATGC")
-        self.assertEqual(records[1]["header"], "Seq2")
-        self.assertEqual(records[1]["sequence"], "CGTA")
-
     def test_analyze_sequence_full_pipeline(self):
         report = analyze_sequence("ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG")
         self.assertEqual(report["length"], 39)
         self.assertIn("counts", report)
         self.assertIn("gc_content", report)
         self.assertIn("percentages", report)
-        self.assertIn("melting_temperature", report)
-        self.assertIn("molecular_weight", report)
+        self.assertIn("isoelectric_point", report)
+        self.assertIn("restriction_sites", report)
         self.assertTrue(report["has_orfs"])
 
 

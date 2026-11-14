@@ -18,7 +18,7 @@ from analyzer import (
 
 def main():
     parser = argparse.ArgumentParser(
-        description="GeneWeaver CLI - Analyze DNA sequences, compute stats, and detect ORFs.",
+        description="GeneWeaver CLI - Analyze DNA sequences, compute stats, and detect ORFs & restriction sites.",
         epilog="Example: python cli.py -s ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG",
     )
 
@@ -46,6 +46,11 @@ def main():
         action="store_true",
         help="Display detected Open Reading Frames exclusively.",
     )
+    parser.add_argument(
+        "--enzymes",
+        action="store_true",
+        help="Display restriction enzyme digestion profile exclusively.",
+    )
 
     args = parser.parse_args()
 
@@ -72,6 +77,18 @@ def main():
             for idx, orf in enumerate(data["orfs"], 1):
                 print(f"  [{idx}] Frame +{orf['frame']} | {orf['start']}-{orf['end']} "
                       f"({orf['length_bp']} bp, {orf['codons']} aa) -> {orf['protein']}")
+            return
+
+        if args.enzymes:
+            print("Restriction Enzyme Digestion Profile:")
+            cutters = [e for e in data["restriction_sites"] if e["cuts_sequence"]]
+            if not cutters:
+                print("  No recognition sites found for standard enzymes.")
+            else:
+                for enz in cutters:
+                    cuts = ", ".join(str(p) for p in enz["cut_positions"])
+                    frags = ", ".join(f"{f}bp" for f in enz["fragments"])
+                    print(f"  * {enz['name']} ({enz['site']}): {enz['cuts']} cut(s) at [{cuts}] -> Fragments: {frags}")
             return
 
         if args.json:

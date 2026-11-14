@@ -118,6 +118,13 @@ h3 {
     font-weight: 700;
 }
 
+h4 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+
 .intro {
     max-width: 720px;
     color: var(--muted);
@@ -144,7 +151,7 @@ h3 {
     gap: 12px;
 }
 
-.panel-header h2 {
+.panel-header h2, .panel-header h3 {
     margin: 0;
 }
 
@@ -449,7 +456,7 @@ button {
     font: 12px/1.6 "SFMono-Regular", Consolas, monospace;
 }
 
-/* ORFs Table */
+/* ORFs and Enzymes Table */
 .table-wrap {
     overflow-x: auto;
 }
@@ -480,6 +487,110 @@ button {
     font-weight: 700;
     font-size: 11px;
     color: var(--purple);
+}
+
+.enzyme-site {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.cut-badge {
+    background: #eef2ff;
+    color: var(--purple);
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+}
+
+.fragments-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.fragment-pill {
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Simulated Gel Electrophoresis Box */
+.gel-container {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+}
+
+.gel-box {
+    background: #020617;
+    border: 2px solid #1e293b;
+    border-radius: 10px;
+    padding: 20px 16px 24px;
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    height: 240px;
+}
+
+.gel-lane {
+    position: relative;
+    flex: 1;
+    min-width: 70px;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 6px;
+    border: 1px dashed #334155;
+}
+
+.lane-title {
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.gel-band {
+    position: absolute;
+    left: 10%;
+    width: 80%;
+    height: 5px;
+    background: #38bdf8;
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.8), 0 0 16px rgba(56, 189, 248, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.gel-band span {
+    font-size: 8px;
+    color: #cbd5e1;
+    position: absolute;
+    right: -24px;
+    display: none;
+}
+
+.gel-lane:first-child .gel-band span {
+    display: inline;
+}
+
+.gel-band.band-sample {
+    background: #a855f7;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.8), 0 0 16px rgba(168, 85, 247, 0.4);
 }
 
 .no-orfs {

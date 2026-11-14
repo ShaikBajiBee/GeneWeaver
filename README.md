@@ -13,6 +13,11 @@ GeneWeaver is a modular Python web application and command-line bioinformatics s
   - **GC Skew** calculation: $(G - C) / (G + C)$ across the sequence.
   - **Melting Temperature ($T_m$)**: Wallace empirical rule for short oligos and salt-adjusted formula for extended sequences.
   - **Molecular Weight ($M_w$)**: ssDNA and dsDNA mass calculation in g/mol.
+  - **Protein Isoelectric Point ($pI$) & Net Charge**: Bisection search for zero-net-charge pH and charge estimation at physiological pH 7.4.
+- **Restriction Endonuclease Digestion & Gel Simulation**:
+  - Recognition site scanning for standard cloning enzymes (`EcoRI`, `BamHI`, `HindIII`, `NotI`, `PstI`, `SmaI`, `XhoI`, `TaqI`, `HaeIII`, `AluI`).
+  - Cut coordinates and digestion fragment length calculation.
+  - **In Silico Agarose Gel Electrophoresis**: Visual lane simulation comparing sample digestion bands against a 1 kb DNA ladder.
 - **Sequence Transformations**:
   - 5' → 3' Reverse complement.
   - Transcription from DNA to mRNA ($T \rightarrow U$).
@@ -36,11 +41,11 @@ GeneWeaver/
 ├── README.md               # Project documentation
 ├── sample.fasta            # Sample FASTA test record
 ├── tests/
-│   └── test_analyzer.py    # Unit tests suite (15 test cases)
+│   └── test_analyzer.py    # Unit tests suite (17 test cases)
 ├── templates/
-│   └── index.html          # Interactive Jinja2 template with charts & presets
+│   └── index.html          # Interactive Jinja2 template with gel simulator & charts
 └── static/
-    └── style.css           # Modern responsive stylesheet
+    └── style.css           # Modern responsive stylesheet with agarose gel theme
 ```
 
 ---
@@ -85,7 +90,10 @@ python cli.py -f sample.fasta --json
 # 3. Detect Open Reading Frames exclusively
 python cli.py -f sample.fasta --orfs
 
-# 4. Save analysis report to a file
+# 4. Show Restriction Enzyme Digestion Profile
+python cli.py -f sample.fasta --enzymes
+
+# 5. Save analysis report to a file
 python cli.py -f sample.fasta -o report.txt
 ```
 
@@ -99,7 +107,7 @@ python cli.py -f sample.fasta -o report.txt
 {
   "status": "healthy",
   "service": "GeneWeaver DNA Analysis API",
-  "version": "2.0.0"
+  "version": "2.1.0"
 }
 ```
 
@@ -115,7 +123,7 @@ curl -X POST http://127.0.0.1:5000/api/analyze \
 
 ## 🧪 Running Unit Tests
 
-Run the complete test suite:
+Run the complete test suite (17/17 passing):
 
 ```powershell
 python -m unittest discover tests

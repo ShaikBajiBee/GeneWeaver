@@ -10,7 +10,7 @@
     <header class="topbar">
         <div class="brand-wrap">
             <a class="brand" href="/">🧬 GeneWeaver</a>
-            <span class="badge">v2.0</span>
+            <span class="badge">v2.1</span>
         </div>
         <div class="topbar-links">
             <span class="tagline">Educational Bioinformatics & Sequence Analyzer</span>
@@ -23,8 +23,8 @@
             <p class="eyebrow">PYTHON DEVELOPMENT CAPSTONE</p>
             <h1>High-Precision DNA Sequence Analysis</h1>
             <p class="intro">
-                Compute nucleotide composition, molecular weight, melting temperatures, transcription,
-                codon translation, and detect in-frame Open Reading Frames (ORFs).
+                Compute nucleotide composition, molecular weight, melting temperatures, restriction digestion maps,
+                transcription, codon translation, isoelectric points, and detect in-frame Open Reading Frames (ORFs).
             </p>
         </section>
 
@@ -112,14 +112,14 @@
                     <small>g/mol (ss: {{ "{:,.1f}".format(result.molecular_weight.ssDNA) }})</small>
                 </article>
                 <article class="stat-card">
+                    <span>Isoelectric Pt (pI)</span>
+                    <strong>{{ result.isoelectric_point.pi }}</strong>
+                    <small>Charge @ 7.4: {{ result.isoelectric_point.charge_ph74 }}</small>
+                </article>
+                <article class="stat-card">
                     <span>GC Skew</span>
                     <strong>{{ result.gc_skew }}</strong>
                     <small>(G - C) / (G + C)</small>
-                </article>
-                <article class="stat-card">
-                    <span>Reading Codons</span>
-                    <strong>{{ result.codons }}</strong>
-                    <small>Full triplet groups</small>
                 </article>
             </div>
 
@@ -167,7 +167,7 @@
 
             <!-- Sequence Products -->
             <div class="panel sequence-panel">
-                <h3>Sequence Transformations</h3>
+                <h3>Sequence Transformations & Protein Properties</h3>
                 <div class="output-block">
                     <div class="block-top">
                         <label>Original DNA (5' → 3')</label>
@@ -194,11 +194,82 @@
 
                 <div class="output-block">
                     <div class="block-top">
-                        <label>Translated Protein (Single-Letter Codes)</label>
+                        <label>Translated Protein (Single-Letter Codes) — Isoelectric Point (pI): <strong>{{ result.isoelectric_point.pi }}</strong> | Net Charge at pH 7.4: <strong>{{ result.isoelectric_point.charge_ph74 }}</strong></label>
                         <button type="button" class="btn-copy" onclick="copyText('seq_prot')">Copy</button>
                     </div>
                     <code id="seq_prot">{{ result.protein }}</code>
                 </div>
+            </div>
+
+            <!-- Restriction Enzyme Digestion Profile & In Silico Gel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>✂️ Restriction Endonuclease Digestion Profile</h3>
+                    <span class="badge">{{ result.cutting_enzymes|length }} active cutters found</span>
+                </div>
+
+                {% if result.has_cutters %}
+                <div class="table-wrap">
+                    <table class="orf-table">
+                        <thead>
+                            <tr>
+                                <th>Enzyme</th>
+                                <th>Recognition Site</th>
+                                <th>Bacterial Source</th>
+                                <th>Cuts</th>
+                                <th>Cut Positions (bp)</th>
+                                <th>Resulting Fragments</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for enz in result.cutting_enzymes %}
+                            <tr>
+                                <td><strong>{{ enz.name }}</strong></td>
+                                <td><code class="enzyme-site">{{ enz.site }}</code></td>
+                                <td><em>{{ enz.source }}</em></td>
+                                <td><span class="cut-badge">{{ enz.cuts }}</span></td>
+                                <td>{{ enz.cut_positions|join(", ") }}</td>
+                                <td>
+                                    <div class="fragments-list">
+                                        {% for f in enz.fragments %}
+                                        <span class="fragment-pill">{{ f }} bp</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Simulated Agarose Gel Lane -->
+                <div class="gel-container">
+                    <h4>Simulated Agarose Gel Electrophoresis (Linear Digestion Bands)</h4>
+                    <div class="gel-box">
+                        <div class="gel-lane">
+                            <span class="lane-title">1 kb Ladder</span>
+                            <div class="gel-band" style="top: 10%;" title="1000 bp"><span>1000</span></div>
+                            <div class="gel-band" style="top: 25%;" title="750 bp"><span>750</span></div>
+                            <div class="gel-band" style="top: 45%;" title="500 bp"><span>500</span></div>
+                            <div class="gel-band" style="top: 65%;" title="250 bp"><span>250</span></div>
+                            <div class="gel-band" style="top: 85%;" title="100 bp"><span>100</span></div>
+                        </div>
+                        {% for enz in result.cutting_enzymes[:4] %}
+                        <div class="gel-lane">
+                            <span class="lane-title">{{ enz.name }}</span>
+                            {% for f in enz.fragments %}
+                            {% set pct = 95 - [((f / result.length) * 85)|int, 85]|min %}
+                            <div class="gel-band band-sample" style="top: {{ [pct, 5]|max }}%;" title="{{ enz.name }}: {{ f }} bp">
+                                <span>{{ f }}bp</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="no-orfs">No recognition sites for standard restriction enzymes (EcoRI, BamHI, HindIII, NotI, etc.) were found in this sequence.</p>
+                {% endif %}
             </div>
 
             <!-- Open Reading Frames (ORFs) -->

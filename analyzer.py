@@ -54,6 +54,33 @@ AMINO_ACID_MW: Dict[str, float] = {
     "T": 119.12, "W": 204.23, "Y": 181.19, "V": 117.15,
 }
 
+# Standard Restriction Endonucleases for cloning & mapping
+RESTRICTION_ENZYMES: Dict[str, Dict[str, Any]] = {
+    "EcoRI": {"site": "GAATTC", "cut_offset": 1, "source": "Escherichia coli"},
+    "BamHI": {"site": "GGATCC", "cut_offset": 1, "source": "Bacillus amyloliquefaciens"},
+    "HindIII": {"site": "AAGCTT", "cut_offset": 1, "source": "Haemophilus influenzae"},
+    "NotI": {"site": "GCGGCCGC", "cut_offset": 2, "source": "Nocardia otitidis"},
+    "PstI": {"site": "CTGCAG", "cut_offset": 5, "source": "Providencia stuartii"},
+    "SmaI": {"site": "CCCGGG", "cut_offset": 3, "source": "Serratia marcescens"},
+    "XhoI": {"site": "CTCGAG", "cut_offset": 1, "source": "Xanthomonas holcicola"},
+    "TaqI": {"site": "TCGA", "cut_offset": 1, "source": "Thermus aquaticus"},
+    "HaeIII": {"site": "GGCC", "cut_offset": 2, "source": "Haemophilus aegyptius"},
+    "AluI": {"site": "AGCT", "cut_offset": 2, "source": "Arthrobacter luteus"},
+}
+
+# pKa values for peptide charge & isoelectric point (Lehninger scale)
+PKA_VALUES = {
+    "N_term": 9.69,
+    "C_term": 2.34,
+    "D": 3.86,  # Asp
+    "E": 4.25,  # Glu
+    "C": 8.33,  # Cys
+    "Y": 10.07, # Tyr
+    "H": 6.00,  # His
+    "K": 10.53, # Lys
+    "R": 12.48, # Arg
+}
+
 
 def clean_sequence(raw_sequence: str) -> str:
     """Remove whitespace and line breaks; normalize to uppercase DNA sequence."""
@@ -143,12 +170,9 @@ def calculate_molecular_weight(sequence: str) -> Dict[str, float]:
     if length == 0:
         return {"ssDNA": 0.0, "dsDNA": 0.0}
 
-    # ssDNA = sum(base * mw) - (water lost during phosphodiester bond formation)
-    # Standard formula: sum(base_counts) - 61.96 g/mol
     base_sum = sum(NUCLEOTIDE_MW[b] for b in sequence)
     ss_dna = base_sum - 61.96 if length > 1 else base_sum
 
-    # Complement strand calculation
     comp_sum = sum(NUCLEOTIDE_MW[b.translate(COMPLEMENT)] for b in sequence)
     comp_dna = comp_sum - 61.96 if length > 1 else comp_sum
     ds_dna = ss_dna + comp_dna
@@ -204,7 +228,6 @@ def find_orfs(sequence: str, min_codon_length: int = 3) -> List[Dict[str, Any]]:
         while i < seq_len - 2:
             codon = sequence[i:i + 3]
             if codon == "ATG":
-                # Start codon found, scan forward for in-frame stop codon
                 start_pos = i
                 orf_codons = ["M"]
                 found_stop = False
@@ -220,24 +243,130 @@ def find_orfs(sequence: str, min_codon_length: int = 3) -> List[Dict[str, Any]]:
                         if len(orf_codons) >= min_codon_length:
                             orfs.append({
                                 "frame": frame + 1,
-                                "start": start_pos + 1,  # 1-based indexing for biologists
+                                "start": start_pos + 1,
                                 "end": stop_pos,
                                 "length_bp": len(orf_seq),
                                 "codons": len(orf_seq) // 3,
                                 "dna": orf_seq,
                                 "protein": "".join(orf_codons),
                             })
-                        i = j  # advance search pointer
+                        i = j
                         break
                     orf_codons.append(aa)
                     j += 3
 
                 if not found_stop:
-                    # No stop codon before sequence end
                     pass
             i += 3
 
     return orfs
+
+
+def find_restriction_sites(sequence: str) -> List[Dict[str, Any]]:
+    """
+    Find recognition sites and compute digestion fragments for standard restriction endonucleases.
+    """
+    results: List[Dict[str, Any]] = []
+    seq_len = len(sequence)
+
+    for enzyme, info in RESTRICTION_ENZYMES.items():
+        site = info["site"]
+        offset = info["cut_offset"]
+        cut_positions: List[int] = []
+
+        # Find all occurrences of the recognition site
+        start = 0
+        while True:
+            idx = sequence.find(site, start)
+            if idx == -1:
+                break
+            cut_pos = idx + offset
+            cut_positions.append(cut_pos)
+            start = idx + 1
+
+        num_cuts = len(cut_positions)
+
+        # Calculate resulting fragment sizes for linear DNA
+        fragments: List[int] = []
+        if num_cuts == 0:
+            fragments = [seq_len]
+        else:
+            prev = 0
+            for pos in cut_positions:
+                fragments.append(pos - prev)
+                prev = pos
+            fragments.append(seq_len - prev)
+
+        fragments.sort(reverse=True)
+
+        results.append({
+            "name": enzyme,
+            "site": site,
+            "source": info["source"],
+            "cuts": num_cuts,
+            "cut_positions": cut_positions,
+            "fragments": fragments,
+            "cuts_sequence": num_cuts > 0,
+        })
+
+    # Sort enzymes by number of cuts (descending)
+    results.sort(key=lambda x: x["cuts"], reverse=True)
+    return results
+
+
+def calculate_peptide_charge(sequence_aa: str, ph: float) -> float:
+    """Compute the net electrical charge of an amino acid chain at a given pH."""
+    # N-terminal positive charge
+    charge = 1.0 / (1.0 + 10 ** (ph - PKA_VALUES["N_term"]))
+    # C-terminal negative charge
+    charge -= 1.0 / (1.0 + 10 ** (PKA_VALUES["C_term"] - ph))
+
+    # Basic side-chains (positive when protonated)
+    charge += sequence_aa.count("K") / (1.0 + 10 ** (ph - PKA_VALUES["K"]))
+    charge += sequence_aa.count("R") / (1.0 + 10 ** (ph - PKA_VALUES["R"]))
+    charge += sequence_aa.count("H") / (1.0 + 10 ** (ph - PKA_VALUES["H"]))
+
+    # Acidic side-chains (negative when deprotonated)
+    charge -= sequence_aa.count("D") / (1.0 + 10 ** (PKA_VALUES["D"] - ph))
+    charge -= sequence_aa.count("E") / (1.0 + 10 ** (PKA_VALUES["E"] - ph))
+    charge -= sequence_aa.count("C") / (1.0 + 10 ** (PKA_VALUES["C"] - ph))
+    charge -= sequence_aa.count("Y") / (1.0 + 10 ** (PKA_VALUES["Y"] - ph))
+
+    return charge
+
+
+def calculate_isoelectric_point(protein_str: str) -> Dict[str, float]:
+    """
+    Determine the isoelectric point (pI) where net charge = 0 using bisection method.
+    Also calculates net charge at physiological pH (7.4).
+    """
+    clean_aa = "".join(aa for aa in protein_str.split() if aa in AMINO_ACID_MW)
+    if not clean_aa:
+        return {"pi": 7.0, "charge_ph74": 0.0}
+
+    # Bisection search between pH 0.0 and 14.0
+    low = 0.0
+    high = 14.0
+    pi = 7.0
+
+    for _ in range(30):
+        mid = (low + high) / 2.0
+        charge = calculate_peptide_charge(clean_aa, mid)
+        if abs(charge) < 0.001:
+            pi = mid
+            break
+        elif charge > 0:
+            low = mid
+        else:
+            high = mid
+        pi = mid
+
+    charge_74 = calculate_peptide_charge(clean_aa, 7.4)
+
+    return {
+        "pi": round(pi, 2),
+        "charge_ph74": round(charge_74, 2),
+    }
 
 
 def generate_text_report(data: Dict[str, Any]) -> str:
@@ -245,6 +374,7 @@ def generate_text_report(data: Dict[str, Any]) -> str:
     seq = data["sequence"]
     counts = data["counts"]
     mw = data["molecular_weight"]
+    pi_data = data.get("isoelectric_point", {})
 
     lines = [
         "=" * 60,
@@ -257,6 +387,8 @@ def generate_text_report(data: Dict[str, Any]) -> str:
         f"Melting Temp Tm : {data['melting_temperature']} °C",
         f"Mol Weight (ss) : {mw['ssDNA']} g/mol",
         f"Mol Weight (ds) : {mw['dsDNA']} g/mol",
+        f"Isoelectric (pI): {pi_data.get('pi', 'N/A')}",
+        f"Charge (pH 7.4) : {pi_data.get('charge_ph74', 'N/A')}",
         "-" * 60,
         "NUCLEOTIDE COMPOSITION",
         f"  Adenine (A)   : {counts['A']} ({round(counts['A']/data['length']*100, 2)}%)",
@@ -286,6 +418,17 @@ def generate_text_report(data: Dict[str, Any]) -> str:
             f"({orf['length_bp']} bp, {orf['codons']} aa) -> {orf['protein']}"
         )
 
+    lines.append("-" * 60)
+    lines.append("RESTRICTION ENZYME DIGESTION SUMMARY:")
+    cutters = [e for e in data.get("restriction_sites", []) if e["cuts_sequence"]]
+    if cutters:
+        for enz in cutters:
+            cuts_str = ", ".join(str(p) for p in enz["cut_positions"])
+            frags_str = ", ".join(f"{f}bp" for f in enz["fragments"])
+            lines.append(f"  {enz['name']} ({enz['site']}): {enz['cuts']} cut(s) at [{cuts_str}] -> Fragments: {frags_str}")
+    else:
+        lines.append("  No restriction sites for standard enzymes detected in sequence.")
+
     lines.append("=" * 60)
     lines.append("Report generated by GeneWeaver · Educational Bioinformatics System")
     lines.append("=" * 60)
@@ -304,12 +447,16 @@ def analyze_sequence(raw_sequence: str) -> Dict[str, Any]:
     tm = calculate_melting_temperature(sequence)
     skew = calculate_gc_skew(sequence)
     orfs = find_orfs(sequence)
+    prot = translate(sequence)
+    pi_data = calculate_isoelectric_point(prot)
+    restriction = find_restriction_sites(sequence)
 
-    # Calculate percentage composition for visual charts
     percentages = {
         base: round((count / length) * 100, 1)
         for base, count in counts.items()
     }
+
+    cutting_enzymes = [e for e in restriction if e["cuts_sequence"]]
 
     return {
         "sequence": sequence,
@@ -323,8 +470,12 @@ def analyze_sequence(raw_sequence: str) -> Dict[str, Any]:
         "molecular_weight": mw,
         "reverse_complement": reverse_complement(sequence),
         "rna": transcribe(sequence),
-        "protein": translate(sequence),
+        "protein": prot,
         "codons": length // 3,
         "orfs": orfs,
         "has_orfs": len(orfs) > 0,
+        "isoelectric_point": pi_data,
+        "restriction_sites": restriction,
+        "cutting_enzymes": cutting_enzymes,
+        "has_cutters": len(cutting_enzymes) > 0,
     }
