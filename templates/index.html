@@ -3,43 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeneWeaver | DNA Sequence Analyzer</title>
+    <title>GeneWeaver | DNA Sequence Analysis & Bioinformatics Workbench</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" href="/">🧬 GeneWeaver</a>
-        <span class="tagline">DNA Sequence Analysis System</span>
+        <div class="brand-wrap">
+            <a class="brand" href="/">🧬 GeneWeaver</a>
+            <span class="badge">v2.0</span>
+        </div>
+        <div class="topbar-links">
+            <span class="tagline">Educational Bioinformatics & Sequence Analyzer</span>
+            <a href="#api-doc" class="api-pill">REST API</a>
+        </div>
     </header>
 
     <main class="container">
         <section class="hero">
-            <p class="eyebrow">PYTHON DEVELOPMENT PROJECT</p>
-            <h1>Understand your DNA sequence.</h1>
-            <p class="intro">Enter a DNA sequence or upload a FASTA file to calculate nucleotide statistics,
-                generate its reverse complement, transcribe RNA and translate protein codons.</p>
+            <p class="eyebrow">PYTHON DEVELOPMENT CAPSTONE</p>
+            <h1>High-Precision DNA Sequence Analysis</h1>
+            <p class="intro">
+                Compute nucleotide composition, molecular weight, melting temperatures, transcription,
+                codon translation, and detect in-frame Open Reading Frames (ORFs).
+            </p>
         </section>
 
         <section class="panel">
-            <h2>Analyze a sequence</h2>
+            <div class="panel-header">
+                <h2>Analyze Sequence</h2>
+                <div class="preset-selector">
+                    <label for="sample_select">Load Preset:</label>
+                    <select id="sample_select" onchange="loadPreset(this.value)">
+                        <option value="">-- Choose Sample --</option>
+                        <option value="demo">Synthetic Test (Stop Codon Demo)</option>
+                        <option value="gfp">GFP Fluorophore Partial</option>
+                        <option value="insulin">Human Insulin Chain B Partial</option>
+                    </select>
+                </div>
+            </div>
+
             <form method="POST" enctype="multipart/form-data">
-                <label for="sequence">DNA sequence</label>
-                <textarea id="sequence" name="sequence" rows="5"
-                    placeholder="Example: ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG">{{ sequence }}</textarea>
-                <div class="or-divider"><span>OR UPLOAD A FILE</span></div>
-                <label for="fasta_file">FASTA / text file</label>
+                <label for="sequence">Enter DNA Sequence (5' → 3')</label>
+                <textarea id="sequence" name="sequence" rows="4"
+                    placeholder="Paste raw sequence (e.g., ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG)...">{{ sequence }}</textarea>
+
+                <div class="or-divider"><span>OR UPLOAD A FASTA FILE</span></div>
+
+                <label for="fasta_file">FASTA / TXT file</label>
                 <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa,.txt">
+
                 <div class="actions">
-                    <button type="submit">Analyze DNA</button>
-                    <button class="secondary" type="button" onclick="loadExample()">Load example</button>
-                    <button class="secondary" type="reset">Clear</button>
+                    <button type="submit" class="btn-primary">⚡ Analyze DNA</button>
+                    <button type="button" class="btn-secondary" onclick="loadPreset('demo')">Load Example</button>
+                    <button type="button" class="btn-secondary" onclick="clearForm()">Clear</button>
                 </div>
             </form>
+
             {% if error %}
-                <div class="alert" role="alert">{{ error }}</div>
+                <div class="alert alert-error" role="alert">
+                    <strong>Error:</strong> {{ error }}
+                </div>
             {% endif %}
+
             {% if source_name %}
-                <p class="file-note">Uploaded file: {{ source_name }}</p>
+                <p class="file-note">📄 Loaded file: <strong>{{ source_name }}</strong></p>
             {% endif %}
         </section>
 
@@ -47,47 +74,217 @@
         <section class="results">
             <div class="results-heading">
                 <div>
-                    <p class="eyebrow">ANALYSIS COMPLETE</p>
-                    <h2>Sequence report</h2>
+                    <p class="eyebrow">ANALYSIS REPORT</p>
+                    <h2>Sequence Metrics & Structure</h2>
                 </div>
-                <span class="success">✓ Valid DNA</span>
+                <div class="export-actions">
+                    <form method="POST" action="/export/json" style="display:inline;">
+                        <input type="hidden" name="sequence" value="{{ result.sequence }}">
+                        <button type="submit" class="btn-outline">💾 JSON Report</button>
+                    </form>
+                    <form method="POST" action="/export/txt" style="display:inline;">
+                        <input type="hidden" name="sequence" value="{{ result.sequence }}">
+                        <button type="submit" class="btn-outline">📄 TXT Summary</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="stats">
-                <article class="stat"><span>Sequence length</span><strong>{{ result.length }}</strong><small>bases</small></article>
-                <article class="stat"><span>GC content</span><strong>{{ result.gc_content }}%</strong><small>G + C</small></article>
-                <article class="stat"><span>AT content</span><strong>{{ result.at_content }}%</strong><small>A + T</small></article>
-                <article class="stat"><span>Complete codons</span><strong>{{ result.codons }}</strong><small>groups of 3</small></article>
+            <!-- Primary Metrics -->
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <span>Length</span>
+                    <strong>{{ result.length }}</strong>
+                    <small>base pairs (bp)</small>
+                </article>
+                <article class="stat-card">
+                    <span>GC Content</span>
+                    <strong>{{ result.gc_content }}%</strong>
+                    <small>G + C proportion</small>
+                </article>
+                <article class="stat-card">
+                    <span>Melting Temp (Tm)</span>
+                    <strong>{{ result.melting_temperature }} °C</strong>
+                    <small>Empirical estimation</small>
+                </article>
+                <article class="stat-card">
+                    <span>Molecular Wt (dsDNA)</span>
+                    <strong>{{ "{:,.1f}".format(result.molecular_weight.dsDNA) }}</strong>
+                    <small>g/mol (ss: {{ "{:,.1f}".format(result.molecular_weight.ssDNA) }})</small>
+                </article>
+                <article class="stat-card">
+                    <span>GC Skew</span>
+                    <strong>{{ result.gc_skew }}</strong>
+                    <small>(G - C) / (G + C)</small>
+                </article>
+                <article class="stat-card">
+                    <span>Reading Codons</span>
+                    <strong>{{ result.codons }}</strong>
+                    <small>Full triplet groups</small>
+                </article>
             </div>
 
+            <!-- Nucleotide Composition & Stacked Bar -->
             <div class="panel">
-                <h3>Nucleotide counts</h3>
+                <h3>Nucleotide Composition</h3>
+                <div class="stacked-bar" title="A: {{ result.percentages.A }}% | T: {{ result.percentages.T }}% | G: {{ result.percentages.G }}% | C: {{ result.percentages.C }}%">
+                    <div class="bar-segment bar-a" style="width: {{ result.percentages.A }}%;"></div>
+                    <div class="bar-segment bar-t" style="width: {{ result.percentages.T }}%;"></div>
+                    <div class="bar-segment bar-g" style="width: {{ result.percentages.G }}%;"></div>
+                    <div class="bar-segment bar-c" style="width: {{ result.percentages.C }}%;"></div>
+                </div>
+
                 <div class="base-grid">
-                    {% for base in ["A", "T", "G", "C"] %}
-                    <div class="base-card base-{{ base|lower }}">
-                        <strong>{{ base }}</strong><span>{{ result.counts[base] }}</span>
+                    <div class="base-card base-a">
+                        <div>
+                            <strong>Adenine (A)</strong>
+                            <span class="count">{{ result.counts.A }} bases</span>
+                        </div>
+                        <span class="pct">{{ result.percentages.A }}%</span>
                     </div>
-                    {% endfor %}
+                    <div class="base-card base-t">
+                        <div>
+                            <strong>Thymine (T)</strong>
+                            <span class="count">{{ result.counts.T }} bases</span>
+                        </div>
+                        <span class="pct">{{ result.percentages.T }}%</span>
+                    </div>
+                    <div class="base-card base-g">
+                        <div>
+                            <strong>Guanine (G)</strong>
+                            <span class="count">{{ result.counts.G }} bases</span>
+                        </div>
+                        <span class="pct">{{ result.percentages.G }}%</span>
+                    </div>
+                    <div class="base-card base-c">
+                        <div>
+                            <strong>Cytosine (C)</strong>
+                            <span class="count">{{ result.counts.C }} bases</span>
+                        </div>
+                        <span class="pct">{{ result.percentages.C }}%</span>
+                    </div>
                 </div>
             </div>
 
+            <!-- Sequence Products -->
             <div class="panel sequence-panel">
-                <h3>Sequence transformations</h3>
-                <div class="output-block"><label>Original DNA</label><code>{{ result.sequence }}</code></div>
-                <div class="output-block"><label>Reverse complement</label><code>{{ result.reverse_complement }}</code></div>
-                <div class="output-block"><label>RNA transcript (T → U)</label><code>{{ result.rna }}</code></div>
-                <div class="output-block"><label>Protein translation (one-letter amino-acid codes)</label><code>{{ result.protein }}</code></div>
+                <h3>Sequence Transformations</h3>
+                <div class="output-block">
+                    <div class="block-top">
+                        <label>Original DNA (5' → 3')</label>
+                        <button type="button" class="btn-copy" onclick="copyText('seq_orig')">Copy</button>
+                    </div>
+                    <code id="seq_orig">{{ result.sequence }}</code>
+                </div>
+
+                <div class="output-block">
+                    <div class="block-top">
+                        <label>Reverse Complement (5' → 3')</label>
+                        <button type="button" class="btn-copy" onclick="copyText('seq_rev')">Copy</button>
+                    </div>
+                    <code id="seq_rev">{{ result.reverse_complement }}</code>
+                </div>
+
+                <div class="output-block">
+                    <div class="block-top">
+                        <label>Transcribed mRNA (5' → 3')</label>
+                        <button type="button" class="btn-copy" onclick="copyText('seq_rna')">Copy</button>
+                    </div>
+                    <code id="seq_rna">{{ result.rna }}</code>
+                </div>
+
+                <div class="output-block">
+                    <div class="block-top">
+                        <label>Translated Protein (Single-Letter Codes)</label>
+                        <button type="button" class="btn-copy" onclick="copyText('seq_prot')">Copy</button>
+                    </div>
+                    <code id="seq_prot">{{ result.protein }}</code>
+                </div>
             </div>
-            <p class="disclaimer">Educational tool: results are computational sequence summaries, not medical advice or clinical interpretation.</p>
+
+            <!-- Open Reading Frames (ORFs) -->
+            <div class="panel">
+                <h3>Detected Open Reading Frames (ORFs)</h3>
+                {% if result.has_orfs %}
+                <div class="table-wrap">
+                    <table class="orf-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Frame</th>
+                                <th>Positions</th>
+                                <th>Length</th>
+                                <th>Codons</th>
+                                <th>Predicted Peptide</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for orf in result.orfs %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><span class="frame-tag">+{{ orf.frame }}</span></td>
+                                <td>{{ orf.start }} - {{ orf.end }}</td>
+                                <td>{{ orf.length_bp }} bp</td>
+                                <td>{{ orf.codons }} aa</td>
+                                <td><code>{{ orf.protein }}</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="no-orfs">No complete Open Reading Frames (ATG start to Stop codon) were detected in forward frames.</p>
+                {% endif %}
+            </div>
+
+            <p class="disclaimer">
+                Educational Bioinformatics Tool: GeneWeaver provides computational sequence analysis for academic and research workflows. It does not replace clinical or diagnostic molecular assays.
+            </p>
         </section>
         {% endif %}
+
+        <!-- API Reference Section -->
+        <section id="api-doc" class="panel api-panel">
+            <h3>🔌 Developer REST API</h3>
+            <p class="intro">Integrate GeneWeaver into your scripts, pipelines, or Jupyter notebooks:</p>
+            <pre class="api-code"><code># Example POST request via curl
+curl -X POST http://127.0.0.1:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"sequence": "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"}'</code></pre>
+        </section>
     </main>
 
-    <footer>GeneWeaver · Built with Python and Flask</footer>
+    <footer>
+        GeneWeaver · Python Development Project · Batch-22
+    </footer>
+
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
     <script>
-        function loadExample() {
-            document.getElementById("sequence").value =
-                "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG";
+        const PRESETS = {
+            "demo": "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG",
+            "gfp": "ATGAGTAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCACAAATTTTCTGTCAGTGGAGAGGGTGAAGGTGATGCAACATACGGAAAACTTACCCTTAAATTTATTTGCACTACTGGAAAACTACCTGTTCCATGGCCAACACTTGTCACTACTTTCTCTTATGGTGTTCAATGCTTTTCAAGATACCCAGATCATATGAAACGGCATGACTTTTTCAAGAGTGCCATGCCCGAAGGTTATGTACAGGAAAGAACTATATTTTTCAAAGATGACGGGAACTACAAGACACGTGCTGAAGTCAAGTTTGAAGGTGATACCCTTGTTAATAGAATCGAGTTAAAAGGTATTGATTTTAAAGAAGATGGAAACATTCTTGGACACAAATTGGAATACAACTATAACTCACACAATGTATACATCATGGCAGACAAACAAAAGAATGGAATCAAAGTTAACTTCAAAATTAGACACAACATTGAAGATGGAAGCGTTCAACTAGCAGACCATTATCAACAAAATACTCCAATTGGCGATGGCCCTGTCCTTTTACCAGACAACCATTACCTGTCCACACAATCTGCCCTTTCGAAAGATCCCAACGAAAAGAGAGACCACATGGTCCTTCTTGAGTTTGTAACAGCTGCTGGGATTACACATGGCATGGATGAACTATACAAATAA",
+            "insulin": "TTTGTGAACCAACACCTGTGCGGCTCACACCTGGTGGAAGCTCTCTACCTAGTGTGCGGGGAACGAGGCTTCTTCTACACACCCAAGACCCGCCGG"
+        };
+
+        function loadPreset(key) {
+            if (PRESETS[key]) {
+                document.getElementById("sequence").value = PRESETS[key];
+            }
+        }
+
+        function clearForm() {
+            document.getElementById("sequence").value = "";
+            document.getElementById("fasta_file").value = "";
+            document.getElementById("sample_select").value = "";
+        }
+
+        function copyText(id) {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                const toast = document.getElementById("toast");
+                toast.classList.add("show");
+                setTimeout(() => toast.classList.remove("show"), 2000);
+            });
         }
     </script>
 </body>
