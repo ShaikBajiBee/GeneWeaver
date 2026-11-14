@@ -12,6 +12,7 @@ from analyzer import (
     analyze_sequence,
     parse_fasta,
     generate_text_report,
+    compare_sequences,
     SequenceError,
 )
 
@@ -97,6 +98,46 @@ def api_analyze():
 
     try:
         report = analyze_sequence(raw_sequence)
+        return jsonify({
+            "success": True,
+            "data": report
+        }), 200
+    except SequenceError as exc:
+        return jsonify({
+            "success": False,
+            "error": str(exc)
+        }), 422
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": f"Internal server error: {exc}"
+        }), 500
+
+
+@app.route("/api/compare", methods=["POST"])
+def api_compare():
+    """
+    REST API endpoint for sequence alignment & variant/mutation detection.
+    Accepts JSON: {"reference": "ATGG...", "query": "ATGC..."}
+    """
+    if not request.is_json:
+        return jsonify({
+            "success": False,
+            "error": "Request must have Content-Type: application/json"
+        }), 400
+
+    payload = request.get_json(silent=True) or {}
+    ref = payload.get("reference", "")
+    query = payload.get("query", "")
+
+    if not ref or not query:
+        return jsonify({
+            "success": False,
+            "error": "Both 'reference' and 'query' sequence fields are required."
+        }), 400
+
+    try:
+        report = compare_sequences(ref, query)
         return jsonify({
             "success": True,
             "data": report

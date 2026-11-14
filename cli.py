@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 GeneWeaver Command-Line Interface (CLI).
-Analyze DNA sequences or FASTA files directly from the terminal.
+Analyze DNA sequences, detect ORFs & restriction sites, and compare sequence variants.
 """
 
 import argparse
@@ -12,13 +12,14 @@ from analyzer import (
     analyze_sequence,
     parse_fasta,
     generate_text_report,
+    compare_sequences,
     SequenceError,
 )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="GeneWeaver CLI - Analyze DNA sequences, compute stats, and detect ORFs & restriction sites.",
+        description="GeneWeaver CLI - Analyze DNA sequences, compute stats, and compare sequence variants.",
         epilog="Example: python cli.py -s ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG",
     )
 
@@ -32,6 +33,10 @@ def main():
         help="Path to FASTA or text file containing DNA sequence.",
     )
 
+    parser.add_argument(
+        "--compare",
+        help="Query sequence to align and compare against the reference sequence for SNP/variant detection.",
+    )
     parser.add_argument(
         "--json",
         action="store_true",
@@ -69,6 +74,33 @@ def main():
                 print("Error: No sequence data found in file.", file=sys.stderr)
                 sys.exit(1)
             raw_sequence = records[0]["sequence"]
+
+        # If --compare option is provided
+        if args.compare:
+            cmp_data = compare_sequences(raw_sequence, args.compare)
+            if args.json:
+                print(json.dumps(cmp_data, indent=2))
+            else:
+                print("=" * 60)
+                print("GENEWEAVER SEQUENCE VARIANT COMPARISON REPORT")
+                print("=" * 60)
+                print(f"Reference Length : {cmp_data['ref_length']} bp")
+                print(f"Query Length     : {cmp_data['query_length']} bp")
+                print(f"Sequence Identity: {cmp_data['identity_pct']}%")
+                print(f"Hamming Distance : {cmp_data['hamming_distance']}")
+                print(f"Total Mutations  : {cmp_data['mutations_count']}")
+                print(f"  Transitions (Ts): {cmp_data['transitions']}")
+                print(f"  Transversions (Tv): {cmp_data['transversions']}")
+                print(f"  Ts/Tv Ratio     : {cmp_data['ts_tv_ratio']}")
+                print(f"  Synonymous (Silent): {cmp_data['synonymous_count']}")
+                print(f"  Missense (Amino acid change): {cmp_data['missense_count']}")
+                print(f"  Nonsense (Stop codon): {cmp_data['nonsense_count']}")
+                print("-" * 60)
+                print("MUTATION DETAILS:")
+                for m in cmp_data["mutations"]:
+                    print(f"  Pos {m['position']}: {m['notation']} [{m['type']}] -> {m['impact']}")
+                print("=" * 60)
+            return
 
         data = analyze_sequence(raw_sequence)
 

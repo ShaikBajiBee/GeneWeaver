@@ -13,6 +13,7 @@ from analyzer import (
     find_orfs,
     find_restriction_sites,
     calculate_isoelectric_point,
+    compare_sequences,
     analyze_sequence,
     SequenceError,
 )
@@ -21,7 +22,6 @@ from analyzer import (
 class TestAnalyzer(unittest.TestCase):
 
     def setUp(self):
-        # Known test sequence: Start codon ATG -> GCC (Ala) -> ATT (Ile) -> TGA (Stop)
         self.sample_dna = "ATGGCCATTTGA"
 
     def test_clean_sequence_valid(self):
@@ -85,7 +85,6 @@ class TestAnalyzer(unittest.TestCase):
         self.assertEqual(orfs[0]["protein"], "MAIV")
 
     def test_restriction_sites_ecori(self):
-        # Insert EcoRI site (GAATTC) into DNA: length 20, site at pos 5
         dna = "AAAAAGAATTCGGGGGGGGG"
         sites = find_restriction_sites(dna)
         ecori = next((e for e in sites if e["name"] == "EcoRI"), None)
@@ -102,14 +101,35 @@ class TestAnalyzer(unittest.TestCase):
             self.assertEqual(e["fragments"], [16])
 
     def test_isoelectric_point(self):
-        # Poly-lysine (basic) should have high pI (> 9.0)
         prot = "K K K K K"
         pi_data = calculate_isoelectric_point(prot)
         self.assertGreater(pi_data["pi"], 9.0)
-        # Poly-aspartic acid (acidic) should have low pI (< 4.5)
+
         prot_acidic = "D D D D D"
         pi_acidic = calculate_isoelectric_point(prot_acidic)
         self.assertLess(pi_acidic["pi"], 4.5)
+
+    def test_compare_sequences_identical(self):
+        res = compare_sequences("ATGGCC", "ATGGCC")
+        self.assertEqual(res["hamming_distance"], 0)
+        self.assertEqual(res["identity_pct"], 100.0)
+        self.assertEqual(len(res["mutations"]), 0)
+
+    def test_compare_sequences_transition_transversion(self):
+        # Position 1: A -> G (Transition: purine to purine)
+        # Position 2: T -> G (Transversion: pyrimidine to purine)
+        ref = "AT"
+        alt = "GG"
+        res = compare_sequences(ref, alt)
+        self.assertEqual(res["transitions"], 1)
+        self.assertEqual(res["transversions"], 1)
+        self.assertEqual(res["mutations_count"], 2)
+
+    def test_compare_sequences_synonymous_impact(self):
+        # TTT (Phe) -> TTC (Phe) is synonymous
+        res = compare_sequences("TTT", "TTC")
+        self.assertEqual(res["synonymous_count"], 1)
+        self.assertIn("Synonymous", res["mutations"][0]["impact"])
 
     def test_parse_fasta_single(self):
         fasta = ">TestSeq\nATGG\nCCAT\nTTGA\n"

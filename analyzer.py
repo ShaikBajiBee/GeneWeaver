@@ -369,6 +369,99 @@ def calculate_isoelectric_point(protein_str: str) -> Dict[str, float]:
     }
 
 
+def compare_sequences(ref_raw: str, query_raw: str) -> Dict[str, Any]:
+    """
+    Compare a query/mutant DNA sequence against a reference sequence.
+    Detects single nucleotide polymorphisms (SNPs), transitions, transversions,
+    and determines functional amino acid impact (synonymous, missense, nonsense).
+    """
+    ref = clean_sequence(ref_raw)
+    query = clean_sequence(query_raw)
+
+    min_len = min(len(ref), len(query))
+    max_len = max(len(ref), len(query))
+    length_diff = abs(len(ref) - len(query))
+
+    purines = {"A", "G"}
+    pyrimidines = {"C", "T"}
+
+    mutations: List[Dict[str, Any]] = []
+    transitions = 0
+    transversions = 0
+    synonymous = 0
+    missense = 0
+    nonsense = 0
+
+    for i in range(min_len):
+        r_base = ref[i]
+        q_base = query[i]
+
+        if r_base != q_base:
+            is_transition = (r_base in purines and q_base in purines) or (
+                r_base in pyrimidines and q_base in pyrimidines
+            )
+            mut_type = "Transition" if is_transition else "Transversion"
+            if is_transition:
+                transitions += 1
+            else:
+                transversions += 1
+
+            codon_start = (i // 3) * 3
+            ref_codon = ref[codon_start : codon_start + 3] if codon_start + 3 <= len(ref) else ""
+            alt_codon = query[codon_start : codon_start + 3] if codon_start + 3 <= len(query) else ""
+
+            ref_aa = CODON_TABLE.get(ref_codon, "-") if len(ref_codon) == 3 else "-"
+            alt_aa = CODON_TABLE.get(alt_codon, "-") if len(alt_codon) == 3 else "-"
+
+            if ref_aa != "-" and alt_aa != "-":
+                if ref_aa == alt_aa:
+                    impact = "Synonymous (Silent)"
+                    synonymous += 1
+                elif alt_aa == "*":
+                    impact = "Nonsense (Stop gained)"
+                    nonsense += 1
+                else:
+                    impact = f"Missense ({ref_aa} -> {alt_aa})"
+                    missense += 1
+            else:
+                impact = "Non-coding / Partial codon"
+
+            mutations.append({
+                "position": i + 1,
+                "ref_base": r_base,
+                "alt_base": q_base,
+                "notation": f"c.{i + 1}{r_base}>{q_base}",
+                "type": mut_type,
+                "ref_codon": ref_codon,
+                "alt_codon": alt_codon,
+                "ref_aa": ref_aa,
+                "alt_aa": alt_aa,
+                "impact": impact,
+            })
+
+    matches = sum(1 for i in range(min_len) if ref[i] == query[i])
+    identity_pct = round((matches / max_len) * 100.0, 2) if max_len > 0 else 100.0
+    hamming_distance = len(mutations) + length_diff
+    ts_tv_ratio = round(transitions / transversions, 2) if transversions > 0 else float(transitions)
+
+    return {
+        "ref_length": len(ref),
+        "query_length": len(query),
+        "length_matches": len(ref) == len(query),
+        "identity_pct": identity_pct,
+        "hamming_distance": hamming_distance,
+        "mutations_count": len(mutations),
+        "transitions": transitions,
+        "transversions": transversions,
+        "ts_tv_ratio": ts_tv_ratio,
+        "synonymous_count": synonymous,
+        "missense_count": missense,
+        "nonsense_count": nonsense,
+        "mutations": mutations,
+    }
+
+
+
 def generate_text_report(data: Dict[str, Any]) -> str:
     """Generate a clean, formatted plain-text bioinformatics report."""
     seq = data["sequence"]
