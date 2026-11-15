@@ -10,317 +10,444 @@
     <header class="topbar">
         <div class="brand-wrap">
             <a class="brand" href="/">🧬 GeneWeaver</a>
-            <span class="badge">v2.1</span>
+            <span class="badge">v2.2</span>
         </div>
         <div class="topbar-links">
-            <span class="tagline">Educational Bioinformatics & Sequence Analyzer</span>
+            <span class="tagline">Bioinformatics & Genomic Variant Suite</span>
             <a href="#api-doc" class="api-pill">REST API</a>
         </div>
     </header>
 
     <main class="container">
         <section class="hero">
-            <p class="eyebrow">PYTHON DEVELOPMENT CAPSTONE</p>
-            <h1>High-Precision DNA Sequence Analysis</h1>
+            <p class="eyebrow">PYTHON DEVELOPMENT CAPSTONE · BATCH-22</p>
+            <h1>High-Precision Genomic Analysis</h1>
             <p class="intro">
-                Compute nucleotide composition, molecular weight, melting temperatures, restriction digestion maps,
-                transcription, codon translation, isoelectric points, and detect in-frame Open Reading Frames (ORFs).
+                Compute nucleotide composition, restriction digestion maps, translation, isoelectric points,
+                and perform pairwise sequence alignment for single nucleotide polymorphism (SNP) variant detection.
             </p>
         </section>
 
-        <section class="panel">
-            <div class="panel-header">
-                <h2>Analyze Sequence</h2>
-                <div class="preset-selector">
-                    <label for="sample_select">Load Preset:</label>
-                    <select id="sample_select" onchange="loadPreset(this.value)">
-                        <option value="">-- Choose Sample --</option>
-                        <option value="demo">Synthetic Test (Stop Codon Demo)</option>
-                        <option value="gfp">GFP Fluorophore Partial</option>
-                        <option value="insulin">Human Insulin Chain B Partial</option>
-                    </select>
-                </div>
+        <!-- Tab Navigation -->
+        <div class="tab-bar">
+            <button type="button" class="tab-btn {% if active_tab != 'compare' %}active{% endif %}" onclick="switchTab('analyze')">
+                ⚡ Sequence Analysis
+            </button>
+            <button type="button" class="tab-btn {% if active_tab == 'compare' %}active{% endif %}" onclick="switchTab('compare')">
+                🔍 Variant & Mutation Comparison
+            </button>
+        </div>
+
+        {% if error %}
+            <div class="alert alert-error" role="alert">
+                <strong>Error:</strong> {{ error }}
             </div>
+        {% endif %}
 
-            <form method="POST" enctype="multipart/form-data">
-                <label for="sequence">Enter DNA Sequence (5' → 3')</label>
-                <textarea id="sequence" name="sequence" rows="4"
-                    placeholder="Paste raw sequence (e.g., ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG)...">{{ sequence }}</textarea>
-
-                <div class="or-divider"><span>OR UPLOAD A FASTA FILE</span></div>
-
-                <label for="fasta_file">FASTA / TXT file</label>
-                <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa,.txt">
-
-                <div class="actions">
-                    <button type="submit" class="btn-primary">⚡ Analyze DNA</button>
-                    <button type="button" class="btn-secondary" onclick="loadPreset('demo')">Load Example</button>
-                    <button type="button" class="btn-secondary" onclick="clearForm()">Clear</button>
-                </div>
-            </form>
-
-            {% if error %}
-                <div class="alert alert-error" role="alert">
-                    <strong>Error:</strong> {{ error }}
-                </div>
-            {% endif %}
-
-            {% if source_name %}
-                <p class="file-note">📄 Loaded file: <strong>{{ source_name }}</strong></p>
-            {% endif %}
-        </section>
-
-        {% if result %}
-        <section class="results">
-            <div class="results-heading">
-                <div>
-                    <p class="eyebrow">ANALYSIS REPORT</p>
-                    <h2>Sequence Metrics & Structure</h2>
-                </div>
-                <div class="export-actions">
-                    <form method="POST" action="/export/json" style="display:inline;">
-                        <input type="hidden" name="sequence" value="{{ result.sequence }}">
-                        <button type="submit" class="btn-outline">💾 JSON Report</button>
-                    </form>
-                    <form method="POST" action="/export/txt" style="display:inline;">
-                        <input type="hidden" name="sequence" value="{{ result.sequence }}">
-                        <button type="submit" class="btn-outline">📄 TXT Summary</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Primary Metrics -->
-            <div class="stats-grid">
-                <article class="stat-card">
-                    <span>Length</span>
-                    <strong>{{ result.length }}</strong>
-                    <small>base pairs (bp)</small>
-                </article>
-                <article class="stat-card">
-                    <span>GC Content</span>
-                    <strong>{{ result.gc_content }}%</strong>
-                    <small>G + C proportion</small>
-                </article>
-                <article class="stat-card">
-                    <span>Melting Temp (Tm)</span>
-                    <strong>{{ result.melting_temperature }} °C</strong>
-                    <small>Empirical estimation</small>
-                </article>
-                <article class="stat-card">
-                    <span>Molecular Wt (dsDNA)</span>
-                    <strong>{{ "{:,.1f}".format(result.molecular_weight.dsDNA) }}</strong>
-                    <small>g/mol (ss: {{ "{:,.1f}".format(result.molecular_weight.ssDNA) }})</small>
-                </article>
-                <article class="stat-card">
-                    <span>Isoelectric Pt (pI)</span>
-                    <strong>{{ result.isoelectric_point.pi }}</strong>
-                    <small>Charge @ 7.4: {{ result.isoelectric_point.charge_ph74 }}</small>
-                </article>
-                <article class="stat-card">
-                    <span>GC Skew</span>
-                    <strong>{{ result.gc_skew }}</strong>
-                    <small>(G - C) / (G + C)</small>
-                </article>
-            </div>
-
-            <!-- Nucleotide Composition & Stacked Bar -->
-            <div class="panel">
-                <h3>Nucleotide Composition</h3>
-                <div class="stacked-bar" title="A: {{ result.percentages.A }}% | T: {{ result.percentages.T }}% | G: {{ result.percentages.G }}% | C: {{ result.percentages.C }}%">
-                    <div class="bar-segment bar-a" style="width: {{ result.percentages.A }}%;"></div>
-                    <div class="bar-segment bar-t" style="width: {{ result.percentages.T }}%;"></div>
-                    <div class="bar-segment bar-g" style="width: {{ result.percentages.G }}%;"></div>
-                    <div class="bar-segment bar-c" style="width: {{ result.percentages.C }}%;"></div>
-                </div>
-
-                <div class="base-grid">
-                    <div class="base-card base-a">
-                        <div>
-                            <strong>Adenine (A)</strong>
-                            <span class="count">{{ result.counts.A }} bases</span>
-                        </div>
-                        <span class="pct">{{ result.percentages.A }}%</span>
-                    </div>
-                    <div class="base-card base-t">
-                        <div>
-                            <strong>Thymine (T)</strong>
-                            <span class="count">{{ result.counts.T }} bases</span>
-                        </div>
-                        <span class="pct">{{ result.percentages.T }}%</span>
-                    </div>
-                    <div class="base-card base-g">
-                        <div>
-                            <strong>Guanine (G)</strong>
-                            <span class="count">{{ result.counts.G }} bases</span>
-                        </div>
-                        <span class="pct">{{ result.percentages.G }}%</span>
-                    </div>
-                    <div class="base-card base-c">
-                        <div>
-                            <strong>Cytosine (C)</strong>
-                            <span class="count">{{ result.counts.C }} bases</span>
-                        </div>
-                        <span class="pct">{{ result.percentages.C }}%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sequence Products -->
-            <div class="panel sequence-panel">
-                <h3>Sequence Transformations & Protein Properties</h3>
-                <div class="output-block">
-                    <div class="block-top">
-                        <label>Original DNA (5' → 3')</label>
-                        <button type="button" class="btn-copy" onclick="copyText('seq_orig')">Copy</button>
-                    </div>
-                    <code id="seq_orig">{{ result.sequence }}</code>
-                </div>
-
-                <div class="output-block">
-                    <div class="block-top">
-                        <label>Reverse Complement (5' → 3')</label>
-                        <button type="button" class="btn-copy" onclick="copyText('seq_rev')">Copy</button>
-                    </div>
-                    <code id="seq_rev">{{ result.reverse_complement }}</code>
-                </div>
-
-                <div class="output-block">
-                    <div class="block-top">
-                        <label>Transcribed mRNA (5' → 3')</label>
-                        <button type="button" class="btn-copy" onclick="copyText('seq_rna')">Copy</button>
-                    </div>
-                    <code id="seq_rna">{{ result.rna }}</code>
-                </div>
-
-                <div class="output-block">
-                    <div class="block-top">
-                        <label>Translated Protein (Single-Letter Codes) — Isoelectric Point (pI): <strong>{{ result.isoelectric_point.pi }}</strong> | Net Charge at pH 7.4: <strong>{{ result.isoelectric_point.charge_ph74 }}</strong></label>
-                        <button type="button" class="btn-copy" onclick="copyText('seq_prot')">Copy</button>
-                    </div>
-                    <code id="seq_prot">{{ result.protein }}</code>
-                </div>
-            </div>
-
-            <!-- Restriction Enzyme Digestion Profile & In Silico Gel -->
-            <div class="panel">
+        <!-- TAB 1: Single Sequence Analysis -->
+        <div id="tab-analyze" style="display: {% if active_tab != 'compare' %}block{% else %}none{% endif %};">
+            <section class="panel">
                 <div class="panel-header">
-                    <h3>✂️ Restriction Endonuclease Digestion Profile</h3>
-                    <span class="badge">{{ result.cutting_enzymes|length }} active cutters found</span>
+                    <h2>Analyze Sequence</h2>
+                    <div class="preset-selector">
+                        <label for="sample_select">Load Preset:</label>
+                        <select id="sample_select" onchange="loadPreset(this.value)">
+                            <option value="">-- Choose Sample --</option>
+                            <option value="demo">Synthetic Test (Stop Codon Demo)</option>
+                            <option value="gfp">GFP Fluorophore Partial</option>
+                            <option value="insulin">Human Insulin Chain B Partial</option>
+                        </select>
+                    </div>
                 </div>
 
-                {% if result.has_cutters %}
-                <div class="table-wrap">
-                    <table class="orf-table">
-                        <thead>
-                            <tr>
-                                <th>Enzyme</th>
-                                <th>Recognition Site</th>
-                                <th>Bacterial Source</th>
-                                <th>Cuts</th>
-                                <th>Cut Positions (bp)</th>
-                                <th>Resulting Fragments</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for enz in result.cutting_enzymes %}
-                            <tr>
-                                <td><strong>{{ enz.name }}</strong></td>
-                                <td><code class="enzyme-site">{{ enz.site }}</code></td>
-                                <td><em>{{ enz.source }}</em></td>
-                                <td><span class="cut-badge">{{ enz.cuts }}</span></td>
-                                <td>{{ enz.cut_positions|join(", ") }}</td>
-                                <td>
-                                    <div class="fragments-list">
-                                        {% for f in enz.fragments %}
-                                        <span class="fragment-pill">{{ f }} bp</span>
-                                        {% endfor %}
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="analyze">
+                    <label for="sequence">Enter DNA Sequence (5' → 3')</label>
+                    <textarea id="sequence" name="sequence" rows="4"
+                        placeholder="Paste raw sequence (e.g., ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG)...">{{ sequence }}</textarea>
+
+                    <div class="or-divider"><span>OR UPLOAD A FASTA FILE</span></div>
+
+                    <label for="fasta_file">FASTA / TXT file</label>
+                    <input id="fasta_file" type="file" name="fasta_file" accept=".fasta,.fa,.txt">
+
+                    <div class="actions">
+                        <button type="submit" class="btn-primary">⚡ Analyze DNA</button>
+                        <button type="button" class="btn-secondary" onclick="loadPreset('demo')">Load Example</button>
+                        <button type="button" class="btn-secondary" onclick="clearForm()">Clear</button>
+                    </div>
+                </form>
+
+                {% if source_name %}
+                    <p class="file-note">📄 Loaded file: <strong>{{ source_name }}</strong></p>
+                {% endif %}
+            </section>
+
+            {% if result %}
+            <section class="results">
+                <div class="results-heading">
+                    <div>
+                        <p class="eyebrow">ANALYSIS REPORT</p>
+                        <h2>Sequence Metrics & Structure</h2>
+                    </div>
+                    <div class="export-actions">
+                        <form method="POST" action="/export/json" style="display:inline;">
+                            <input type="hidden" name="sequence" value="{{ result.sequence }}">
+                            <button type="submit" class="btn-outline">💾 JSON Report</button>
+                        </form>
+                        <form method="POST" action="/export/txt" style="display:inline;">
+                            <input type="hidden" name="sequence" value="{{ result.sequence }}">
+                            <button type="submit" class="btn-outline">📄 TXT Summary</button>
+                        </form>
+                    </div>
                 </div>
 
-                <!-- Simulated Agarose Gel Lane -->
-                <div class="gel-container">
-                    <h4>Simulated Agarose Gel Electrophoresis (Linear Digestion Bands)</h4>
-                    <div class="gel-box">
-                        <div class="gel-lane">
-                            <span class="lane-title">1 kb Ladder</span>
-                            <div class="gel-band" style="top: 10%;" title="1000 bp"><span>1000</span></div>
-                            <div class="gel-band" style="top: 25%;" title="750 bp"><span>750</span></div>
-                            <div class="gel-band" style="top: 45%;" title="500 bp"><span>500</span></div>
-                            <div class="gel-band" style="top: 65%;" title="250 bp"><span>250</span></div>
-                            <div class="gel-band" style="top: 85%;" title="100 bp"><span>100</span></div>
+                <!-- Primary Metrics -->
+                <div class="stats-grid">
+                    <article class="stat-card">
+                        <span>Length</span>
+                        <strong>{{ result.length }}</strong>
+                        <small>base pairs (bp)</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>GC Content</span>
+                        <strong>{{ result.gc_content }}%</strong>
+                        <small>G + C proportion</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Melting Temp (Tm)</span>
+                        <strong>{{ result.melting_temperature }} °C</strong>
+                        <small>Empirical estimation</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Molecular Wt (dsDNA)</span>
+                        <strong>{{ "{:,.1f}".format(result.molecular_weight.dsDNA) }}</strong>
+                        <small>g/mol (ss: {{ "{:,.1f}".format(result.molecular_weight.ssDNA) }})</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Isoelectric Pt (pI)</span>
+                        <strong>{{ result.isoelectric_point.pi }}</strong>
+                        <small>Charge @ 7.4: {{ result.isoelectric_point.charge_ph74 }}</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>GC Skew</span>
+                        <strong>{{ result.gc_skew }}</strong>
+                        <small>(G - C) / (G + C)</small>
+                    </article>
+                </div>
+
+                <!-- Nucleotide Composition & Stacked Bar -->
+                <div class="panel">
+                    <h3>Nucleotide Composition</h3>
+                    <div class="stacked-bar" title="A: {{ result.percentages.A }}% | T: {{ result.percentages.T }}% | G: {{ result.percentages.G }}% | C: {{ result.percentages.C }}%">
+                        <div class="bar-segment bar-a" style="width: {{ result.percentages.A }}%;"></div>
+                        <div class="bar-segment bar-t" style="width: {{ result.percentages.T }}%;"></div>
+                        <div class="bar-segment bar-g" style="width: {{ result.percentages.G }}%;"></div>
+                        <div class="bar-segment bar-c" style="width: {{ result.percentages.C }}%;"></div>
+                    </div>
+
+                    <div class="base-grid">
+                        <div class="base-card base-a">
+                            <div>
+                                <strong>Adenine (A)</strong>
+                                <span class="count">{{ result.counts.A }} bases</span>
+                            </div>
+                            <span class="pct">{{ result.percentages.A }}%</span>
                         </div>
-                        {% for enz in result.cutting_enzymes[:4] %}
-                        <div class="gel-lane">
-                            <span class="lane-title">{{ enz.name }}</span>
-                            {% for f in enz.fragments %}
-                            {% set pct = 95 - [((f / result.length) * 85)|int, 85]|min %}
-                            <div class="gel-band band-sample" style="top: {{ [pct, 5]|max }}%;" title="{{ enz.name }}: {{ f }} bp">
-                                <span>{{ f }}bp</span>
+                        <div class="base-card base-t">
+                            <div>
+                                <strong>Thymine (T)</strong>
+                                <span class="count">{{ result.counts.T }} bases</span>
+                            </div>
+                            <span class="pct">{{ result.percentages.T }}%</span>
+                        </div>
+                        <div class="base-card base-g">
+                            <div>
+                                <strong>Guanine (G)</strong>
+                                <span class="count">{{ result.counts.G }} bases</span>
+                            </div>
+                            <span class="pct">{{ result.percentages.G }}%</span>
+                        </div>
+                        <div class="base-card base-c">
+                            <div>
+                                <strong>Cytosine (C)</strong>
+                                <span class="count">{{ result.counts.C }} bases</span>
+                            </div>
+                            <span class="pct">{{ result.percentages.C }}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sequence Products -->
+                <div class="panel sequence-panel">
+                    <h3>Sequence Transformations & Protein Properties</h3>
+                    <div class="output-block">
+                        <div class="block-top">
+                            <label>Original DNA (5' → 3')</label>
+                            <button type="button" class="btn-copy" onclick="copyText('seq_orig')">Copy</button>
+                        </div>
+                        <code id="seq_orig">{{ result.sequence }}</code>
+                    </div>
+
+                    <div class="output-block">
+                        <div class="block-top">
+                            <label>Reverse Complement (5' → 3')</label>
+                            <button type="button" class="btn-copy" onclick="copyText('seq_rev')">Copy</button>
+                        </div>
+                        <code id="seq_rev">{{ result.reverse_complement }}</code>
+                    </div>
+
+                    <div class="output-block">
+                        <div class="block-top">
+                            <label>Transcribed mRNA (5' → 3')</label>
+                            <button type="button" class="btn-copy" onclick="copyText('seq_rna')">Copy</button>
+                        </div>
+                        <code id="seq_rna">{{ result.rna }}</code>
+                    </div>
+
+                    <div class="output-block">
+                        <div class="block-top">
+                            <label>Translated Protein — pI: <strong>{{ result.isoelectric_point.pi }}</strong> | Net Charge @ pH 7.4: <strong>{{ result.isoelectric_point.charge_ph74 }}</strong></label>
+                            <button type="button" class="btn-copy" onclick="copyText('seq_prot')">Copy</button>
+                        </div>
+                        <code id="seq_prot">{{ result.protein }}</code>
+                    </div>
+                </div>
+
+                <!-- Restriction Digestion Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>✂️ Restriction Endonuclease Digestion Profile</h3>
+                        <span class="badge">{{ result.cutting_enzymes|length }} active cutters found</span>
+                    </div>
+
+                    {% if result.has_cutters %}
+                    <div class="table-wrap">
+                        <table class="orf-table">
+                            <thead>
+                                <tr>
+                                    <th>Enzyme</th>
+                                    <th>Recognition Site</th>
+                                    <th>Bacterial Source</th>
+                                    <th>Cuts</th>
+                                    <th>Cut Positions (bp)</th>
+                                    <th>Resulting Fragments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for enz in result.cutting_enzymes %}
+                                <tr>
+                                    <td><strong>{{ enz.name }}</strong></td>
+                                    <td><code class="enzyme-site">{{ enz.site }}</code></td>
+                                    <td><em>{{ enz.source }}</em></td>
+                                    <td><span class="cut-badge">{{ enz.cuts }}</span></td>
+                                    <td>{{ enz.cut_positions|join(", ") }}</td>
+                                    <td>
+                                        <div class="fragments-list">
+                                            {% for f in enz.fragments %}
+                                            <span class="fragment-pill">{{ f }} bp</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Simulated Agarose Gel Lane -->
+                    <div class="gel-container">
+                        <h4>Simulated Agarose Gel Electrophoresis (Linear Digestion Bands)</h4>
+                        <div class="gel-box">
+                            <div class="gel-lane">
+                                <span class="lane-title">1 kb Ladder</span>
+                                <div class="gel-band" style="top: 10%;" title="1000 bp"><span>1000</span></div>
+                                <div class="gel-band" style="top: 25%;" title="750 bp"><span>750</span></div>
+                                <div class="gel-band" style="top: 45%;" title="500 bp"><span>500</span></div>
+                                <div class="gel-band" style="top: 65%;" title="250 bp"><span>250</span></div>
+                                <div class="gel-band" style="top: 85%;" title="100 bp"><span>100</span></div>
+                            </div>
+                            {% for enz in result.cutting_enzymes[:4] %}
+                            <div class="gel-lane">
+                                <span class="lane-title">{{ enz.name }}</span>
+                                {% for f in enz.fragments %}
+                                {% set pct = 95 - [((f / result.length) * 85)|int, 85]|min %}
+                                <div class="gel-band band-sample" style="top: {{ [pct, 5]|max }}%;" title="{{ enz.name }}: {{ f }} bp">
+                                    <span>{{ f }}bp</span>
+                                </div>
+                                {% endfor %}
                             </div>
                             {% endfor %}
                         </div>
-                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="no-orfs">No recognition sites for standard restriction enzymes were found in this sequence.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Open Reading Frames (ORFs) -->
+                <div class="panel">
+                    <h3>Detected Open Reading Frames (ORFs)</h3>
+                    {% if result.has_orfs %}
+                    <div class="table-wrap">
+                        <table class="orf-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Frame</th>
+                                    <th>Positions</th>
+                                    <th>Length</th>
+                                    <th>Codons</th>
+                                    <th>Predicted Peptide</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for orf in result.orfs %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><span class="frame-tag">+{{ orf.frame }}</span></td>
+                                    <td>{{ orf.start }} - {{ orf.end }}</td>
+                                    <td>{{ orf.length_bp }} bp</td>
+                                    <td>{{ orf.codons }} aa</td>
+                                    <td><code>{{ orf.protein }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="no-orfs">No complete Open Reading Frames (ATG to Stop codon) were detected in forward frames.</p>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+        </div>
+
+        <!-- TAB 2: Sequence Comparison & Variant Caller -->
+        <div id="tab-compare" style="display: {% if active_tab == 'compare' %}block{% else %}none{% endif %};">
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Pairwise Alignment & SNP Variant Caller</h2>
+                    <button type="button" class="btn-outline" onclick="loadComparisonExample()">Load Mutation Demo</button>
+                </div>
+                <p class="intro">
+                    Align a query or mutated sequence against a reference genome sequence to identify single nucleotide polymorphisms (SNPs),
+                    classify transitions vs. transversions (Ts/Tv ratio), and predict amino acid substitution effects.
+                </p>
+
+                <form method="POST">
+                    <input type="hidden" name="action" value="compare">
+                    <label for="ref_sequence">Reference DNA Sequence (Wild-type)</label>
+                    <textarea id="ref_sequence" name="ref_sequence" rows="3"
+                        placeholder="Paste wild-type reference DNA...">{{ ref_sequence }}</textarea>
+
+                    <label for="query_sequence" style="margin-top: 14px;">Query / Mutant DNA Sequence</label>
+                    <textarea id="query_sequence" name="query_sequence" rows="3"
+                        placeholder="Paste query or mutant DNA...">{{ query_sequence }}</textarea>
+
+                    <div class="actions">
+                        <button type="submit" class="btn-primary">🔍 Compare Sequences & Call SNPs</button>
+                        <button type="button" class="btn-secondary" onclick="clearComparison()">Clear</button>
+                    </div>
+                </form>
+            </section>
+
+            {% if cmp_result %}
+            <section class="results">
+                <div class="results-heading">
+                    <div>
+                        <p class="eyebrow">MUTATION REPORT</p>
+                        <h2>Variant Summary & Alignment Metrics</h2>
                     </div>
                 </div>
-                {% else %}
-                <p class="no-orfs">No recognition sites for standard restriction enzymes (EcoRI, BamHI, HindIII, NotI, etc.) were found in this sequence.</p>
-                {% endif %}
-            </div>
 
-            <!-- Open Reading Frames (ORFs) -->
-            <div class="panel">
-                <h3>Detected Open Reading Frames (ORFs)</h3>
-                {% if result.has_orfs %}
-                <div class="table-wrap">
-                    <table class="orf-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Frame</th>
-                                <th>Positions</th>
-                                <th>Length</th>
-                                <th>Codons</th>
-                                <th>Predicted Peptide</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for orf in result.orfs %}
-                            <tr>
-                                <td>{{ loop.index }}</td>
-                                <td><span class="frame-tag">+{{ orf.frame }}</span></td>
-                                <td>{{ orf.start }} - {{ orf.end }}</td>
-                                <td>{{ orf.length_bp }} bp</td>
-                                <td>{{ orf.codons }} aa</td>
-                                <td><code>{{ orf.protein }}</code></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="stats-grid">
+                    <article class="stat-card">
+                        <span>Identity</span>
+                        <strong>{{ cmp_result.identity_pct }}%</strong>
+                        <small>Sequence match</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Hamming Distance</span>
+                        <strong>{{ cmp_result.hamming_distance }}</strong>
+                        <small>Total differences</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Transitions (Ts)</span>
+                        <strong>{{ cmp_result.transitions }}</strong>
+                        <small>Purine/pyrimidine conserving</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Transversions (Tv)</span>
+                        <strong>{{ cmp_result.transversions }}</strong>
+                        <small>Cross-class mutations</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Ts / Tv Ratio</span>
+                        <strong>{{ cmp_result.ts_tv_ratio }}</strong>
+                        <small>Genomic quality metric</small>
+                    </article>
+                    <article class="stat-card">
+                        <span>Missense Variants</span>
+                        <strong>{{ cmp_result.missense_count }}</strong>
+                        <small>Amino acid changes</small>
+                    </article>
                 </div>
-                {% else %}
-                <p class="no-orfs">No complete Open Reading Frames (ATG start to Stop codon) were detected in forward frames.</p>
-                {% endif %}
-            </div>
 
-            <p class="disclaimer">
-                Educational Bioinformatics Tool: GeneWeaver provides computational sequence analysis for academic and research workflows. It does not replace clinical or diagnostic molecular assays.
-            </p>
-        </section>
-        {% endif %}
+                <div class="panel">
+                    <h3>Identified Point Mutations (SNPs)</h3>
+                    {% if cmp_result.mutations_count > 0 %}
+                    <div class="table-wrap">
+                        <table class="orf-table">
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Notation</th>
+                                    <th>Change</th>
+                                    <th>Mutation Class</th>
+                                    <th>Codon Change</th>
+                                    <th>Functional Impact</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in cmp_result.mutations %}
+                                <tr>
+                                    <td><strong>Pos {{ m.position }}</strong></td>
+                                    <td><code>{{ m.notation }}</code></td>
+                                    <td>{{ m.ref_base }} → <strong>{{ m.alt_base }}</strong></td>
+                                    <td><span class="cut-badge">{{ m.type }}</span></td>
+                                    <td><code>{{ m.ref_codon }} → {{ m.alt_codon }}</code></td>
+                                    <td>
+                                        <span class="fragment-pill {% if 'Synonymous' in m.impact %}pill-green{% elif 'Nonsense' in m.impact %}pill-red{% else %}pill-blue{% endif %}">
+                                            {{ m.impact }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="no-orfs">Sequences are 100% identical. No single nucleotide polymorphisms (SNPs) detected.</p>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+        </div>
 
         <!-- API Reference Section -->
         <section id="api-doc" class="panel api-panel">
             <h3>🔌 Developer REST API</h3>
             <p class="intro">Integrate GeneWeaver into your scripts, pipelines, or Jupyter notebooks:</p>
-            <pre class="api-code"><code># Example POST request via curl
+            <pre class="api-code"><code># 1. Single sequence analysis
 curl -X POST http://127.0.0.1:5000/api/analyze \
   -H "Content-Type: application/json" \
-  -d '{"sequence": "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"}'</code></pre>
+  -d '{"sequence": "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"}'
+
+# 2. Pairwise sequence alignment & SNP detection
+curl -X POST http://127.0.0.1:5000/api/compare \
+  -H "Content-Type: application/json" \
+  -d '{"reference": "ATGGCCATTGTA", "query": "ATGGCCATGGTA"}'</code></pre>
         </section>
     </main>
 
@@ -337,16 +464,34 @@ curl -X POST http://127.0.0.1:5000/api/analyze \
             "insulin": "TTTGTGAACCAACACCTGTGCGGCTCACACCTGGTGGAAGCTCTCTACCTAGTGTGCGGGGAACGAGGCTTCTTCTACACACCCAAGACCCGCCGG"
         };
 
+        function switchTab(tab) {
+            document.getElementById("tab-analyze").style.display = tab === 'analyze' ? 'block' : 'none';
+            document.getElementById("tab-compare").style.display = tab === 'compare' ? 'block' : 'none';
+            const buttons = document.querySelectorAll(".tab-btn");
+            buttons[0].classList.toggle("active", tab === 'analyze');
+            buttons[1].classList.toggle("active", tab === 'compare');
+        }
+
         function loadPreset(key) {
             if (PRESETS[key]) {
                 document.getElementById("sequence").value = PRESETS[key];
             }
         }
 
+        function loadComparisonExample() {
+            document.getElementById("ref_sequence").value = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG";
+            document.getElementById("query_sequence").value = "ATGGCCATGGTAATGGGCCGCTGAAAGAGTGCCCGATAG";
+        }
+
         function clearForm() {
             document.getElementById("sequence").value = "";
             document.getElementById("fasta_file").value = "";
             document.getElementById("sample_select").value = "";
+        }
+
+        function clearComparison() {
+            document.getElementById("ref_sequence").value = "";
+            document.getElementById("query_sequence").value = "";
         }
 
         function copyText(id) {

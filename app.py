@@ -23,42 +23,64 @@ app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB upload limit
 @app.route("/", methods=["GET", "POST"])
 def home():
     result = None
+    cmp_result = None
     error = None
     sequence = ""
+    ref_sequence = ""
+    query_sequence = ""
     source_name = ""
-    records = []
-    selected_record_idx = 0
+    active_tab = "analyze"
 
     if request.method == "POST":
-        sequence = request.form.get("sequence", "")
-        uploaded = request.files.get("fasta_file")
+        action = request.form.get("action", "analyze")
+        active_tab = action
 
-        try:
-            if uploaded and uploaded.filename:
-                source_name = uploaded.filename
-                content = uploaded.read().decode("utf-8-sig")
-                records = parse_fasta(content)
-                if records:
-                    sequence = records[0]["sequence"]
-                    source_name = f"{uploaded.filename} ({records[0]['header']})"
-            
-            if sequence:
-                result = analyze_sequence(sequence)
-            else:
-                error = "Please provide a DNA sequence or upload a file."
-        except UnicodeDecodeError:
-            error = "The uploaded file must be a valid UTF-8 text or FASTA file."
-        except SequenceError as exc:
-            error = str(exc)
-        except Exception as exc:
-            error = f"Could not process input: {exc}"
+        if action == "compare":
+            ref_sequence = request.form.get("ref_sequence", "")
+            query_sequence = request.form.get("query_sequence", "")
+            try:
+                if ref_sequence and query_sequence:
+                    cmp_result = compare_sequences(ref_sequence, query_sequence)
+                else:
+                    error = "Please provide both reference and query DNA sequences for comparison."
+            except SequenceError as exc:
+                error = str(exc)
+            except Exception as exc:
+                error = f"Comparison failed: {exc}"
+        else:
+            sequence = request.form.get("sequence", "")
+            uploaded = request.files.get("fasta_file")
+
+            try:
+                if uploaded and uploaded.filename:
+                    source_name = uploaded.filename
+                    content = uploaded.read().decode("utf-8-sig")
+                    records = parse_fasta(content)
+                    if records:
+                        sequence = records[0]["sequence"]
+                        source_name = f"{uploaded.filename} ({records[0]['header']})"
+
+                if sequence:
+                    result = analyze_sequence(sequence)
+                else:
+                    error = "Please provide a DNA sequence or upload a file."
+            except UnicodeDecodeError:
+                error = "The uploaded file must be a valid UTF-8 text or FASTA file."
+            except SequenceError as exc:
+                error = str(exc)
+            except Exception as exc:
+                error = f"Could not process input: {exc}"
 
     return render_template(
         "index.html",
         result=result,
+        cmp_result=cmp_result,
         error=error,
         sequence=sequence,
+        ref_sequence=ref_sequence,
+        query_sequence=query_sequence,
         source_name=source_name,
+        active_tab=active_tab,
     )
 
 
@@ -71,7 +93,7 @@ def api_health():
     return jsonify({
         "status": "healthy",
         "service": "GeneWeaver DNA Analysis API",
-        "version": "2.0.0"
+        "version": "2.2.0"
     }), 200
 
 
