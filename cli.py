@@ -15,6 +15,10 @@ from analyzer import (
     compare_sequences,
     SequenceError,
 )
+from primers import (
+    design_pcr_primers,
+    reverse_translate,
+)
 
 
 def main():
@@ -55,6 +59,11 @@ def main():
         "--enzymes",
         action="store_true",
         help="Display restriction enzyme digestion profile exclusively.",
+    )
+    parser.add_argument(
+        "--primers",
+        action="store_true",
+        help="Design forward and reverse flanking PCR primers with Tm calculation.",
     )
 
     args = parser.parse_args()
@@ -121,6 +130,24 @@ def main():
                     cuts = ", ".join(str(p) for p in enz["cut_positions"])
                     frags = ", ".join(f"{f}bp" for f in enz["fragments"])
                     print(f"  * {enz['name']} ({enz['site']}): {enz['cuts']} cut(s) at [{cuts}] -> Fragments: {frags}")
+            return
+
+        if args.primers:
+            p_data = design_pcr_primers(raw_sequence)
+            fwd = p_data["forward_primer"]
+            rev = p_data["reverse_primer"]
+            print("=" * 60)
+            print("PCR FLANKING PRIMER DESIGN & TM ANALYSIS")
+            print("=" * 60)
+            print(f"Template Length   : {p_data['template_length']} bp")
+            print(f"Expected Amplicon : {p_data['amplicon_size']} bp")
+            print(f"Tm Difference     : {p_data['tm_difference']} °C (Compatible: {p_data['compatible_annealing']})")
+            print("-" * 60)
+            print(f"Forward Primer (5' -> 3'): {fwd['sequence']}")
+            print(f"  Length: {fwd['length']} bp | GC: {fwd['gc_content']}% | Tm: {fwd['melting_temperature']} °C | GC Clamp: {fwd['has_gc_clamp']} ({fwd['quality']})")
+            print(f"Reverse Primer (5' -> 3'): {rev['sequence']}")
+            print(f"  Length: {rev['length']} bp | GC: {rev['gc_content']}% | Tm: {rev['melting_temperature']} °C | GC Clamp: {rev['has_gc_clamp']} ({rev['quality']})")
+            print("=" * 60)
             return
 
         if args.json:

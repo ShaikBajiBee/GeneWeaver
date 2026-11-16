@@ -15,6 +15,10 @@ from analyzer import (
     compare_sequences,
     SequenceError,
 )
+from primers import (
+    reverse_translate,
+    design_pcr_primers,
+)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB upload limit
@@ -136,6 +140,55 @@ def api_analyze():
         }), 500
 
 
+@app.route("/api/primers", methods=["POST"])
+def api_primers():
+    """
+    REST API endpoint for PCR flanking primer design and Tm analysis.
+    Accepts JSON: {"sequence": "ATGG...", "primer_len": 20}
+    """
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    raw_seq = payload.get("sequence", "")
+    primer_len = int(payload.get("primer_len", 20))
+
+    if not raw_seq:
+        return jsonify({"success": False, "error": "Missing 'sequence' field."}), 400
+
+    try:
+        report = design_pcr_primers(raw_seq, primer_len=primer_len)
+        return jsonify({"success": True, "data": report}), 200
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
+
+
+@app.route("/api/reverse-translate", methods=["POST"])
+def api_reverse_translate():
+    """
+    REST API endpoint to reverse-translate amino acid sequence to degenerate DNA.
+    Accepts JSON: {"peptide": "MAIV"}
+    """
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    peptide = payload.get("peptide", "")
+
+    if not peptide:
+        return jsonify({"success": False, "error": "Missing 'peptide' field."}), 400
+
+    try:
+        report = reverse_translate(peptide)
+        return jsonify({"success": True, "data": report}), 200
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
+
+
 @app.route("/api/compare", methods=["POST"])
 def api_compare():
     """
@@ -174,6 +227,55 @@ def api_compare():
             "success": False,
             "error": f"Internal server error: {exc}"
         }), 500
+
+
+@app.route("/api/primers", methods=["POST"])
+def api_primers():
+    """
+    REST API endpoint for PCR flanking primer design and Tm analysis.
+    Accepts JSON: {"sequence": "ATGG...", "primer_len": 20}
+    """
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    raw_seq = payload.get("sequence", "")
+    primer_len = int(payload.get("primer_len", 20))
+
+    if not raw_seq:
+        return jsonify({"success": False, "error": "Missing 'sequence' field."}), 400
+
+    try:
+        report = design_pcr_primers(raw_seq, primer_len=primer_len)
+        return jsonify({"success": True, "data": report}), 200
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
+
+
+@app.route("/api/reverse-translate", methods=["POST"])
+def api_reverse_translate():
+    """
+    REST API endpoint to reverse-translate amino acid sequence to degenerate DNA.
+    Accepts JSON: {"peptide": "MAIV"}
+    """
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    peptide = payload.get("peptide", "")
+
+    if not peptide:
+        return jsonify({"success": False, "error": "Missing 'peptide' field."}), 400
+
+    try:
+        report = reverse_translate(peptide)
+        return jsonify({"success": True, "data": report}), 200
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
 
 
 # -------------------------------------------------------------
