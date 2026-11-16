@@ -19,6 +19,9 @@ from primers import (
     reverse_translate,
     design_pcr_primers,
 )
+from batch_analyzer import (
+    analyze_batch_fasta,
+)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB upload limit
@@ -97,7 +100,7 @@ def api_health():
     return jsonify({
         "status": "healthy",
         "service": "GeneWeaver DNA Analysis API",
-        "version": "2.2.0"
+        "version": "2.3.0"
     }), 200
 
 
@@ -138,55 +141,6 @@ def api_analyze():
             "success": False,
             "error": f"Internal server error: {exc}"
         }), 500
-
-
-@app.route("/api/primers", methods=["POST"])
-def api_primers():
-    """
-    REST API endpoint for PCR flanking primer design and Tm analysis.
-    Accepts JSON: {"sequence": "ATGG...", "primer_len": 20}
-    """
-    if not request.is_json:
-        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
-
-    payload = request.get_json(silent=True) or {}
-    raw_seq = payload.get("sequence", "")
-    primer_len = int(payload.get("primer_len", 20))
-
-    if not raw_seq:
-        return jsonify({"success": False, "error": "Missing 'sequence' field."}), 400
-
-    try:
-        report = design_pcr_primers(raw_seq, primer_len=primer_len)
-        return jsonify({"success": True, "data": report}), 200
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 422
-    except Exception as exc:
-        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
-
-
-@app.route("/api/reverse-translate", methods=["POST"])
-def api_reverse_translate():
-    """
-    REST API endpoint to reverse-translate amino acid sequence to degenerate DNA.
-    Accepts JSON: {"peptide": "MAIV"}
-    """
-    if not request.is_json:
-        return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
-
-    payload = request.get_json(silent=True) or {}
-    peptide = payload.get("peptide", "")
-
-    if not peptide:
-        return jsonify({"success": False, "error": "Missing 'peptide' field."}), 400
-
-    try:
-        report = reverse_translate(peptide)
-        return jsonify({"success": True, "data": report}), 200
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 422
-    except Exception as exc:
-        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
 
 
 @app.route("/api/compare", methods=["POST"])
@@ -273,6 +227,31 @@ def api_reverse_translate():
         report = reverse_translate(peptide)
         return jsonify({"success": True, "data": report}), 200
     except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 422
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500
+
+
+@app.route("/api/batch-analyze", methods=["POST"])
+def api_batch_analyze():
+    """
+    REST API endpoint for multi-FASTA batch analysis and genetic distance matrix.
+    Accepts JSON: {"fasta": ">Seq1\nATGC...\n>Seq2\nCGTA..."} or plain text FASTA payload.
+    """
+    fasta_text = ""
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        fasta_text = payload.get("fasta", "")
+    else:
+        fasta_text = request.get_data(as_text=True)
+
+    if not fasta_text:
+        return jsonify({"success": False, "error": "Missing FASTA data in request body."}), 400
+
+    try:
+        batch_report = analyze_batch_fasta(fasta_text)
+        return jsonify({"success": True, "data": batch_report}), 200
+    except SequenceError as exc:
         return jsonify({"success": False, "error": str(exc)}), 422
     except Exception as exc:
         return jsonify({"success": False, "error": f"Internal error: {exc}"}), 500

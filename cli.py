@@ -19,6 +19,9 @@ from primers import (
     design_pcr_primers,
     reverse_translate,
 )
+from batch_analyzer import (
+    analyze_batch_fasta,
+)
 
 
 def main():
@@ -65,11 +68,50 @@ def main():
         action="store_true",
         help="Design forward and reverse flanking PCR primers with Tm calculation.",
     )
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Perform high-throughput comparative analysis and distance matrix on a multi-FASTA file.",
+    )
 
     args = parser.parse_args()
 
     raw_sequence = ""
     try:
+        if args.batch:
+            if not args.file:
+                print("Error: --batch requires a file input (-f / --file).", file=sys.stderr)
+                sys.exit(1)
+            fpath = Path(args.file)
+            if not fpath.is_file():
+                print(f"Error: File not found: {args.file}", file=sys.stderr)
+                sys.exit(1)
+            b_data = analyze_batch_fasta(fpath.read_text(encoding="utf-8-sig"))
+            if args.json:
+                print(json.dumps(b_data, indent=2))
+            else:
+                print("=" * 70)
+                print("GENEWEAVER MULTI-FASTA BATCH COMPARATIVE ANALYSIS")
+                print("=" * 70)
+                print(f"Total Sequences Analyzed : {b_data['total_sequences']}")
+                print(f"Average Sequence Length  : {b_data['metrics']['avg_length_bp']} bp (Min: {b_data['metrics']['min_length_bp']}, Max: {b_data['metrics']['max_length_bp']})")
+                print(f"Average GC Content       : {b_data['metrics']['avg_gc_content']}%")
+                print("-" * 70)
+                print(f"{'#':<3} {'Header':<30} {'Length':<8} {'GC%':<7} {'Tm(°C)':<7} {'ORFs':<5} {'Enz':<4}")
+                print("-" * 70)
+                for r in b_data["records"]:
+                    hdr = (r["header"][:28] + "..") if len(r["header"]) > 30 else r["header"]
+                    print(f"{r['index']:<3} {hdr:<30} {r['length']:<8} {r['gc_content']:<7} {r['melting_temperature']:<7} {r['orf_count']:<5} {r['restriction_cutters']:<4}")
+                print("-" * 70)
+                if b_data.get("closest_pair"):
+                    cp = b_data["closest_pair"]
+                    print(f"Closest Pair       : {cp['seq1']} <-> {cp['seq2']} ({cp['identity_pct']}% match, {cp['differences']} diffs)")
+                if b_data.get("most_divergent_pair"):
+                    dp = b_data["most_divergent_pair"]
+                    print(f"Most Divergent Pair: {dp['seq1']} <-> {dp['seq2']} ({dp['identity_pct']}% match, {dp['differences']} diffs)")
+                print("=" * 70)
+            return
+
         if args.sequence:
             raw_sequence = args.sequence
         elif args.file:

@@ -18,15 +18,21 @@ GeneWeaver is a modular Python web application and command-line bioinformatics s
   - Recognition site scanning for standard cloning enzymes (`EcoRI`, `BamHI`, `HindIII`, `NotI`, `PstI`, `SmaI`, `XhoI`, `TaqI`, `HaeIII`, `AluI`).
   - Cut coordinates and digestion fragment length calculation.
   - **In Silico Agarose Gel Electrophoresis**: Visual lane simulation comparing sample digestion bands against a 1 kb DNA ladder.
-- **Sequence Transformations**:
-  - 5' → 3' Reverse complement.
-  - Transcription from DNA to mRNA ($T \rightarrow U$).
-  - Full codon translation into IUPAC amino acid single-letter codes with premature stop codon detection.
-- **Open Reading Frame (ORF) Detection**: Automated discovery of in-frame protein coding segments starting with `ATG` across forward reading frames.
-- **Multi-FASTA Support**: Robust parsing of single or multiple FASTA header records.
-- **Export Options**: Download comprehensive reports as structured **JSON** or formatted **TXT**.
-- **Dual Interfaces**: Full-featured **Flask Web Application** and a scriptable **CLI Tool** (`cli.py`).
-- **Developer REST API**: Programmatic endpoints (`/api/analyze`, `/api/health`) for pipeline automation.
+- **Pairwise Alignment & SNP Variant Detection**:
+  - Detects point mutations between query/mutant and reference sequences.
+  - Transition vs. Transversion classification with genomic $T_s / T_v$ quality ratio.
+  - Functional impact prediction: Synonymous (Silent), Missense, and Nonsense (Stop gained).
+- **PCR Primer Design & Reverse-Translation**:
+  - Automated flanking forward and reverse PCR primer design with $T_m$ compatibility checking.
+  - Reverse-translation of peptide sequences into consensus degenerate DNA using IUPAC ambiguity codes.
+- **Multi-FASTA Batch Analysis & Genetic Distance Matrix**:
+  - High-throughput comparative analysis across multi-sequence FASTA files.
+  - Pairwise $N \times N$ genetic distance matrix (Hamming distance and percent identity).
+  - Automated detection of closest homologous pairs and most divergent outliers.
+- **Dual Interfaces & REST API**:
+  - Interactive **Flask Web Application** with tabbed navigation.
+  - Scriptable **CLI Tool** (`cli.py`).
+  - Programmatic **REST API** (`/api/analyze`, `/api/compare`, `/api/primers`, `/api/reverse-translate`, `/api/batch-analyze`, `/api/health`).
 
 ---
 
@@ -36,16 +42,21 @@ GeneWeaver is a modular Python web application and command-line bioinformatics s
 GeneWeaver/
 ├── app.py                  # Flask web server, REST API & download routes
 ├── analyzer.py             # Core bioinformatics analysis algorithms & calculations
+├── batch_analyzer.py       # Multi-FASTA comparative metrics & distance matrix
+├── primers.py              # PCR primer design & reverse-translation engine
 ├── cli.py                  # Command-line interface with argparse
 ├── requirements.txt        # Python dependency manifest
 ├── README.md               # Project documentation
-├── sample.fasta            # Sample FASTA test record
+├── sample.fasta            # Sample single-record FASTA
+├── sample_multi.fasta      # Sample multi-record comparative FASTA
 ├── tests/
-│   └── test_analyzer.py    # Unit tests suite (17 test cases)
+│   ├── test_analyzer.py        # Core algorithm unit tests (20 tests)
+│   ├── test_primers.py         # Primer design & reverse-translation unit tests (5 tests)
+│   └── test_batch_analyzer.py  # Batch analysis & distance matrix unit tests (5 tests)
 ├── templates/
-│   └── index.html          # Interactive Jinja2 template with gel simulator & charts
+│   └── index.html          # Interactive Jinja2 template with gel simulator & tabs
 └── static/
-    └── style.css           # Modern responsive stylesheet with agarose gel theme
+    └── style.css           # Modern responsive stylesheet
 ```
 
 ---
@@ -55,14 +66,8 @@ GeneWeaver/
 ### 1. Environment Setup (Windows PowerShell)
 
 ```powershell
-# Open the project folder in terminal
 cd d:\GeneWeaver
-
-# Create and activate virtual environment
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# Install requirements
 pip install -r requirements.txt
 ```
 
@@ -71,59 +76,34 @@ pip install -r requirements.txt
 ```powershell
 python app.py
 ```
-
 Open your browser at: **`http://127.0.0.1:5000`**
 
 ---
 
 ## 💻 Command Line Interface (CLI)
 
-GeneWeaver includes a command-line tool (`cli.py`):
-
 ```powershell
-# 1. Analyze an inline sequence
+# 1. Analyze single sequence
 python cli.py -s ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG
 
-# 2. Analyze a FASTA file and output as JSON
-python cli.py -f sample.fasta --json
+# 2. Compare sequence against reference (SNP variant detection)
+python cli.py -s ATGGCCATTGTA --compare ATGGCCATGGTA
 
-# 3. Detect Open Reading Frames exclusively
-python cli.py -f sample.fasta --orfs
+# 3. Flanking PCR primer design
+python cli.py -f sample.fasta --primers
 
-# 4. Show Restriction Enzyme Digestion Profile
+# 4. Restriction enzyme digestion profile
 python cli.py -f sample.fasta --enzymes
 
-# 5. Save analysis report to a file
-python cli.py -f sample.fasta -o report.txt
-```
-
----
-
-## 🔌 REST API Documentation
-
-### Health Check
-`GET /api/health`
-```json
-{
-  "status": "healthy",
-  "service": "GeneWeaver DNA Analysis API",
-  "version": "2.1.0"
-}
-```
-
-### Sequence Analysis
-`POST /api/analyze`
-```bash
-curl -X POST http://127.0.0.1:5000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"sequence": "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"}'
+# 5. Multi-FASTA batch analysis & genetic distance matrix
+python cli.py -f sample_multi.fasta --batch
 ```
 
 ---
 
 ## 🧪 Running Unit Tests
 
-Run the complete test suite (17/17 passing):
+Run the complete test suite (30/30 tests passing):
 
 ```powershell
 python -m unittest discover tests
@@ -132,4 +112,4 @@ python -m unittest discover tests
 ---
 
 ## 📜 Disclaimer
-This software is developed as an educational demonstration project. It is intended for computational learning, academic research simulations, and bioinformatics training.
+This software is developed as an educational demonstration project for computational learning, academic research simulations, and bioinformatics training.
