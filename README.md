@@ -29,6 +29,10 @@ GeneWeaver is a modular Python web application and command-line bioinformatics s
   - High-throughput comparative analysis across multi-sequence FASTA files.
   - Pairwise $N \times N$ genetic distance matrix (Hamming distance and percent identity).
   - Automated detection of closest homologous pairs and most divergent outliers.
+- **Sliding-Window GC Skew & Replication Origin (oriC) Prediction**:
+  - Local GC skew $(G - C)/(G + C)$ calculated across sliding windows.
+  - Cumulative GC skew analysis locating replication origin ($oriC$) at minimum inflection and terminus ($ter$) at peak.
+  - Standalone inline SVG line plot generation (`generate_skew_svg`).
 - **Dual Interfaces & REST API**:
   - Interactive **Flask Web Application** with tabbed navigation.
   - Scriptable **CLI Tool** (`cli.py`).
@@ -43,6 +47,7 @@ GeneWeaver/
 ├── app.py                  # Flask web server, REST API & download routes
 ├── analyzer.py             # Core bioinformatics analysis algorithms & calculations
 ├── batch_analyzer.py       # Multi-FASTA comparative metrics & distance matrix
+├── gc_skew_analyzer.py     # Sliding-window GC skew & replication origin prediction
 ├── primers.py              # PCR primer design & reverse-translation engine
 ├── cli.py                  # Command-line interface with argparse
 ├── requirements.txt        # Python dependency manifest
@@ -52,7 +57,8 @@ GeneWeaver/
 ├── tests/
 │   ├── test_analyzer.py        # Core algorithm unit tests (20 tests)
 │   ├── test_primers.py         # Primer design & reverse-translation unit tests (5 tests)
-│   └── test_batch_analyzer.py  # Batch analysis & distance matrix unit tests (5 tests)
+│   ├── test_batch_analyzer.py  # Batch analysis & distance matrix unit tests (5 tests)
+│   └── test_gc_skew.py         # Sliding GC skew & origin prediction tests (3 tests)
 ├── templates/
 │   └── index.html          # Interactive Jinja2 template with gel simulator & tabs
 └── static/
@@ -97,13 +103,16 @@ python cli.py -f sample.fasta --enzymes
 
 # 5. Multi-FASTA batch analysis & genetic distance matrix
 python cli.py -f sample_multi.fasta --batch
+
+# 6. Sliding-window GC skew & replication origin (oriC) prediction
+python cli.py -f sample.fasta --skew
 ```
 
 ---
 
 ## 🧪 Running Unit Tests
 
-Run the complete test suite (30/30 tests passing):
+Run the complete test suite (33/33 tests passing):
 
 ```powershell
 python -m unittest discover tests

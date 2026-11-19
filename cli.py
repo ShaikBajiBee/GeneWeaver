@@ -22,6 +22,9 @@ from primers import (
 from batch_analyzer import (
     analyze_batch_fasta,
 )
+from gc_skew_analyzer import (
+    calculate_sliding_gc_skew,
+)
 
 
 def main():
@@ -72,6 +75,11 @@ def main():
         "--batch",
         action="store_true",
         help="Perform high-throughput comparative analysis and distance matrix on a multi-FASTA file.",
+    )
+    parser.add_argument(
+        "--skew",
+        action="store_true",
+        help="Calculate sliding-window GC skew and predict replication origin (oriC).",
     )
 
     args = parser.parse_args()
@@ -153,6 +161,22 @@ def main():
                 print("=" * 60)
             return
 
+        if args.skew:
+            skew_data = calculate_sliding_gc_skew(raw_sequence)
+            if args.json:
+                print(json.dumps(skew_data, indent=2))
+            else:
+                print("=" * 60)
+                print("SLIDING-WINDOW GC SKEW & REPLICATION ORIGIN (oriC) ANALYSIS")
+                print("=" * 60)
+                print(f"Sequence Length        : {skew_data['sequence_length']} bp")
+                print(f"Window Size / Step     : {skew_data['window_size']} bp / {skew_data['step_size']} bp")
+                print(f"Total Sliding Windows  : {skew_data['total_windows']}")
+                print(f"Predicted Origin (oriC): Position {skew_data['predicted_origin_bp']} bp (Min Cumulative Skew: {skew_data['min_cumulative_skew']})")
+                print(f"Predicted Terminus(ter): Position {skew_data['predicted_terminus_bp']} bp (Max Cumulative Skew: {skew_data['max_cumulative_skew']})")
+                print("=" * 60)
+            return
+
         data = analyze_sequence(raw_sequence)
 
         if args.orfs:
@@ -190,6 +214,22 @@ def main():
             print(f"Reverse Primer (5' -> 3'): {rev['sequence']}")
             print(f"  Length: {rev['length']} bp | GC: {rev['gc_content']}% | Tm: {rev['melting_temperature']} °C | GC Clamp: {rev['has_gc_clamp']} ({rev['quality']})")
             print("=" * 60)
+            return
+
+        if args.skew:
+            skew_data = calculate_sliding_gc_skew(raw_sequence)
+            if args.json:
+                print(json.dumps(skew_data, indent=2))
+            else:
+                print("=" * 60)
+                print("SLIDING-WINDOW GC SKEW & REPLICATION ORIGIN (oriC) ANALYSIS")
+                print("=" * 60)
+                print(f"Sequence Length        : {skew_data['sequence_length']} bp")
+                print(f"Window Size / Step     : {skew_data['window_size']} bp / {skew_data['step_size']} bp")
+                print(f"Total Sliding Windows  : {skew_data['total_windows']}")
+                print(f"Predicted Origin (oriC): Position {skew_data['predicted_origin_bp']} bp (Min Cumulative Skew: {skew_data['min_cumulative_skew']})")
+                print(f"Predicted Terminus(ter): Position {skew_data['predicted_terminus_bp']} bp (Max Cumulative Skew: {skew_data['max_cumulative_skew']})")
+                print("=" * 60)
             return
 
         if args.json:
